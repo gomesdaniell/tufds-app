@@ -23,50 +23,27 @@
 </section>
 
 <style>
-  .bib-toolbar{
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    margin-bottom:10px;
-    flex-wrap:wrap;
-  }
-  .bib-left{
-    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
-  }
-  #bib-search{
-    padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; min-width:240px;
-  }
-  #bib-type, .bib-toolbar button{
-    padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer;
-  }
-  .bib-grid{
-    display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:12px;
-  }
-  .bib-card{
-    background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px;
-    display:flex; gap:10px; align-items:flex-start;
-  }
-  .bib-ico{
-    font-size:26px; line-height:1; min-width:28px;
-  }
-  .bib-main{
-    display:flex; flex-direction:column; gap:6px; width:100%;
-  }
+  .bib-toolbar{ display:flex; justify-content:space-between; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .bib-left{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #bib-search{ padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; min-width:240px; }
+  #bib-type, .bib-toolbar button{ padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer; }
+  .bib-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:12px; }
+  .bib-card{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; display:flex; gap:10px; align-items:flex-start; }
+  .bib-ico{ font-size:26px; line-height:1; min-width:28px; }
+  .bib-main{ display:flex; flex-direction:column; gap:6px; width:100%; }
   .bib-name{ font-weight:700; }
   .bib-meta{ font-size:12px; color:#6b7280; }
-  .bib-actions{ display:flex; gap:8px; }
-  .bib-actions a{
+  .bib-actions{ display:flex; gap:8px; margin-top:6px; }
+  .bib-actions a, .bib-actions button{
     font-size:13px; text-decoration:none; padding:6px 10px; border-radius:999px;
-    border:1px solid #e5e7eb; color:#111827; background:#f9fafb;
+    border:1px solid #e5e7eb; color:#111827; background:#f9fafb; cursor:pointer;
   }
   .muted{ color:#6b7280; }
 </style>
 
 <script>
-  // Estado simples
   let BIB_RESULTS = [];
 
-  // Inicializa imediatamente após include
   (function initBiblioteca(){
     bindBibEvents();
     carregarBiblioteca();
@@ -75,6 +52,8 @@
   function bindBibEvents(){
     const btnBuscar = document.getElementById('bib-btn-buscar');
     const btnAtualizar = document.getElementById('bib-btn-atualizar');
+    const search = document.getElementById('bib-search');
+
     if (btnBuscar && !btnBuscar._bound){
       btnBuscar.addEventListener('click', carregarBiblioteca);
       btnBuscar._bound = true;
@@ -87,31 +66,35 @@
       });
       btnAtualizar._bound = true;
     }
-    const search = document.getElementById('bib-search');
     if (search && !search._bound){
       search.addEventListener('keydown', (e)=>{ if(e.key==='Enter') carregarBiblioteca(); });
       search._bound = true;
     }
   }
 
-  function carregarBiblioteca(){
+  async function carregarBiblioteca(){
     const term = (document.getElementById('bib-search')?.value || '').trim();
     const tipo = (document.getElementById('bib-type')?.value || 'all');
 
     const lista = document.getElementById('bib-lista');
     lista.innerHTML = '<div class="muted">Carregando arquivos da biblioteca...</div>';
 
-    google.script.run
-      .withSuccessHandler(renderBiblioteca)
-      .withFailureHandler(err=>{
-        console.error(err);
-        lista.innerHTML = '<div class="muted">Erro ao carregar a biblioteca.</div>';
-      })
-      .getBibliotecaArquivos(term, tipo);
+    try{
+      const url = new URL('/api/getBibliotecaArquivos', window.location.origin);
+      if (term) url.searchParams.set('searchText', term);
+      if (tipo) url.searchParams.set('mimeFilter', tipo);
+
+      const res = await fetch(url.toString());
+      const data = await res.json();
+      renderBiblioteca(Array.isArray(data?.arquivos) ? data.arquivos : []);
+    }catch(err){
+      console.error(err);
+      lista.innerHTML = '<div class="muted">Erro ao carregar a biblioteca.</div>';
+    }
   }
 
   function renderBiblioteca(arr){
-    BIB_RESULTS = Array.isArray(arr) ? arr : [];
+    BIB_RESULTS = arr || [];
     const lista = document.getElementById('bib-lista');
 
     if (!BIB_RESULTS.length){
@@ -133,18 +116,28 @@
           <div class="bib-main">
             <div class="bib-name">${escapeHtml(f.name)}</div>
             <div class="bib-meta">${escapeHtml(f.mimeType)}${meta ? ' · ' + meta : ''}</div>
-            
-          <div class="bib-actions">
-            <button class="bib-open" data-url="${f.url}">Abrir</button>
-              <button class="bib-copy" data-url="${f.url}" title="Copiar link">Copiar</button>
-          </div>
 
+            <div class="bib-actions">
+              <a href="${f.url}" target="_blank" rel="noopener">Abrir</a>
+              <button class="bib-copy" data-url="${f.url}" title="Copiar link">Copiar</button>
+            </div>
           </div>
         </div>
       `;
     });
 
     lista.innerHTML = html;
+
+    // copiar link
+    lista.querySelectorAll('.bib-copy').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        try{
+          await navigator.clipboard.writeText(btn.dataset.url);
+          btn.textContent = 'Copiado!';
+          setTimeout(()=>btn.textContent='Copiar', 1200);
+        }catch(e){}
+      });
+    });
   }
 
   function escapeHtml(s){
