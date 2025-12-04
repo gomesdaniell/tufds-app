@@ -1,1 +1,377 @@
-<p>Conteúdo de teste – Pedidos</p>
+<p class="muted">
+  Aqui você encontra as necessidades atuais do terreiro e pode escolher vários itens para doar de uma só vez.
+</p>
+
+<div class="doacoes-layout">
+  <!-- LADO ESQUERDO: LISTA DE ITENS -->
+  <div class="doacoes-esquerda">
+    <h3>1. Escolha o que deseja doar</h3>
+    <div id="lista-doacoes">
+      <p>Carregando necessidades...</p>
+    </div>
+  </div>
+
+  <!-- LADO DIREITO: DADOS DO FILHO + ITENS SELECIONADOS -->
+  <div class="doacoes-direita">
+    <h3>2. Seus dados e itens escolhidos</h3>
+
+    <form id="form-doacao">
+
+      <label for="nomeFilho">Seu nome*</label>
+      <input type="text" id="nomeFilho" required />
+
+      <label for="contatoFilho">Contato (WhatsApp)*</label>
+      <input type="text" id="contatoFilho" placeholder="(92) 9xxxx-xxxx" required />
+
+      <div class="itens-selecionados-bloco">
+        <h4>Itens selecionados</h4>
+        <div id="itens-selecionados">
+          <p class="muted">Nenhum item selecionado ainda. Escolha na lista ao lado e clique em “Adicionar”.</p>
+        </div>
+      </div>
+
+      <button type="submit">Confirmar doação</button>
+      <div id="msg-doacao" class="msg"></div>
+
+    </form>
+  </div>
+</div>
+
+<hr>
+
+<h3>Quem já se comprometeu</h3>
+<div id="painel-compromissos">
+  <p>Carregando painel...</p>
+</div>
+
+<style>
+  .doacoes-layout{
+    display:flex;
+    gap:20px;
+    flex-wrap:wrap;
+    margin-top:10px;
+  }
+  .doacoes-esquerda, .doacoes-direita{
+    flex:1 1 280px;
+  }
+
+  #lista-doacoes table,
+  #painel-compromissos table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.9rem;
+  }
+  #lista-doacoes th, #lista-doacoes td,
+  #painel-compromissos th, #painel-compromissos td{
+    padding:6px 8px;
+    border-bottom:1px solid #e5e7eb;
+    text-align:left;
+  }
+  #lista-doacoes th,
+  #painel-compromissos th{
+    font-weight:bold;
+    background:#f9fafb;
+  }
+
+  #lista-doacoes input[type="number"]{
+    width:60px;
+    padding:4px 6px;
+    font-size:0.8rem;
+    border-radius:6px;
+    border:1px solid #d1d5db;
+  }
+
+  #lista-doacoes button{
+    padding:4px 8px;
+    border:none;
+    border-radius:999px;
+    cursor:pointer;
+    font-size:0.8rem;
+    background:#0f766e;
+    color:#fff;
+    white-space:nowrap;
+  }
+
+  #form-doacao{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:4px;
+  }
+  #form-doacao label{
+    font-size:0.9rem;
+    font-weight:600;
+  }
+  #form-doacao input{
+    padding:6px 8px;
+    border-radius:6px;
+    border:1px solid #d1d5db;
+    font-size:0.9rem;
+  }
+  #form-doacao button[type="submit"]{
+    margin-top:8px;
+    padding:8px 10px;
+    border:none;
+    border-radius:999px;
+    background:#0f766e;
+    color:#fff;
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  .itens-selecionados-bloco{
+    margin-top:10px;
+    padding:10px;
+    border-radius:10px;
+    background:#f9fafb;
+    border:1px solid #e5e7eb;
+  }
+  .itens-selecionados-bloco h4{
+    margin:0 0 6px;
+    font-size:0.95rem;
+  }
+
+  #itens-selecionados ul{
+    list-style:none;
+    padding-left:0;
+    margin:0;
+  }
+  #itens-selecionados li{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:0.85rem;
+    padding:4px 0;
+    border-bottom:1px dashed #e5e7eb;
+  }
+  #itens-selecionados li:last-child{
+    border-bottom:none;
+  }
+  #itens-selecionados .item-info{
+    max-width:75%;
+  }
+  #itens-selecionados .item-acoes button{
+    border:none;
+    border-radius:999px;
+    padding:2px 8px;
+    font-size:0.75rem;
+    cursor:pointer;
+    background:#fee2e2;
+    color:#991b1b;
+  }
+
+  #msg-doacao{
+    margin-top:6px;
+    font-size:0.85rem;
+  }
+  #msg-doacao.ok{ color:#15803d; }
+  #msg-doacao.erro{ color:#b91c1c; }
+</style>
+
+<script>
+  // "Carrinho" de itens selecionados
+  let itensSelecionados = [];
+
+  // ⚠️ SEM DOMContentLoaded: isso é um include, o HTML já está pronto
+  function initTelaDoacoes(){
+    // garante que o form exista antes de bindar
+    const form = document.getElementById('form-doacao');
+    if (form && !form._bound) {
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        enviarDoacaoMultiplos();
+      });
+      form._bound = true;
+    }
+
+    carregarDoacoes();
+    carregarPainelCompromissos();
+  }
+
+  // Chamamos a inicialização imediatamente depois de declarar as funções no include
+  // Isso funciona porque o <script> vem depois do HTML da tela de doações
+  window.setTimeout(initTelaDoacoes, 0);
+
+  function carregarDoacoes(){
+    google.script.run
+      .withSuccessHandler(renderizarListaDoacoes)
+      .withFailureHandler(function(err){
+        const el = document.getElementById('lista-doacoes');
+        el.innerHTML = '<p>Erro ao carregar lista de doações.</p>';
+        console.error(err);
+      })
+      .getDoacoesNecessidades();
+  }
+
+  function renderizarListaDoacoes(lista){
+    const el = document.getElementById('lista-doacoes');
+
+    if (!lista || lista.length === 0){
+      el.innerHTML = '<p>Nenhuma necessidade cadastrada no momento.</p>';
+      return;
+    }
+
+    let html = '<table>';
+    html += '<thead><tr><th>ID</th><th>Descrição</th><th>Categoria</th><th>Necessário</th><th>Qtd</th><th></th></tr></thead><tbody>';
+
+    lista.forEach(item => {
+      const safeDesc = (item.descricao+'').replace(/'/g, "\\'");
+      html += `
+        <tr>
+          <td>${item.idItem}</td>
+          <td>${item.descricao}</td>
+          <td>${item.categoria || ''}</td>
+          <td>${item.qtdNecessaria || ''} ${item.unidade || ''}</td>
+          <td>
+            <input type="number" id="qtd_item_${item.idItem}" min="1" step="1" value="1">
+          </td>
+          <td>
+            <button type="button"
+              onclick="adicionarItemDoacao('${item.idItem}','${safeDesc}')">
+              Adicionar
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  function adicionarItemDoacao(idItem, descricao){
+    const input = document.getElementById('qtd_item_' + idItem);
+    let qtd = parseInt(input && input.value ? input.value : '1', 10);
+    if (isNaN(qtd) || qtd <= 0) qtd = 1;
+
+    const existente = itensSelecionados.find(i => i.idItem === idItem);
+    if (existente){
+      existente.qtd += qtd;
+    } else {
+      itensSelecionados.push({
+        idItem: idItem,
+        descricao: descricao,
+        qtd: qtd
+      });
+    }
+    renderizarItensSelecionados();
+  }
+
+  function renderizarItensSelecionados(){
+    const el = document.getElementById('itens-selecionados');
+
+    if (!itensSelecionados.length){
+      el.innerHTML = '<p class="muted">Nenhum item selecionado ainda.</p>';
+      return;
+    }
+
+    let html = '<ul>';
+    itensSelecionados.forEach((it, idx) => {
+      html += `
+        <li>
+          <div class="item-info">
+            <strong>${it.descricao}</strong><br>
+            <span>ID: ${it.idItem} &middot; Quantidade: ${it.qtd}</span>
+          </div>
+          <div class="item-acoes">
+            <button type="button" onclick="removerItemSelecionado(${idx})">Remover</button>
+          </div>
+        </li>
+      `;
+    });
+    html += '</ul>';
+    el.innerHTML = html;
+  }
+
+  function removerItemSelecionado(index){
+    itensSelecionados.splice(index, 1);
+    renderizarItensSelecionados();
+  }
+
+  function enviarDoacaoMultiplos(){
+    const nome = document.getElementById('nomeFilho').value.trim();
+    const contato = document.getElementById('contatoFilho').value.trim();
+    const msgEl = document.getElementById('msg-doacao');
+
+    msgEl.className = 'msg';
+    msgEl.textContent = '';
+
+    if (!nome || !contato){
+      msgEl.textContent = 'Preencha seu nome e contato.';
+      msgEl.classList.add('erro');
+      return;
+    }
+
+    if (!itensSelecionados.length){
+      msgEl.textContent = 'Selecione pelo menos um item para doar.';
+      msgEl.classList.add('erro');
+      return;
+    }
+
+    const payload = itensSelecionados.map(it => ({
+      idItem: it.idItem,
+      qtd: it.qtd,
+      descricao: it.descricao
+    }));
+
+    google.script.run
+      .withSuccessHandler(function(resp){
+        if (resp && resp.ok){
+          msgEl.textContent = resp.msg || 'Doações registradas com sucesso.';
+          msgEl.classList.add('ok');
+          itensSelecionados = [];
+          renderizarItensSelecionados();
+          carregarPainelCompromissos();
+        } else {
+          msgEl.textContent = (resp && resp.msg) || 'Erro ao registrar doações.';
+          msgEl.classList.add('erro');
+        }
+      })
+      .withFailureHandler(function(err){
+        console.error(err);
+        msgEl.textContent = 'Erro ao registrar doações.';
+        msgEl.classList.add('erro');
+      })
+      .salvarCompromissosDoacao(nome, contato, JSON.stringify(payload));
+  }
+
+  function carregarPainelCompromissos(){
+    google.script.run
+      .withSuccessHandler(renderizarPainelCompromissos)
+      .withFailureHandler(function(err){
+        const el = document.getElementById('painel-compromissos');
+        el.innerHTML = '<p>Erro ao carregar painel de compromissos.</p>';
+        console.error(err);
+      })
+      .getPainelDoacoesCompromissos();
+  }
+
+  function renderizarPainelCompromissos(lista){
+    const el = document.getElementById('painel-compromissos');
+
+    if (!lista || lista.length === 0){
+      el.innerHTML = '<p>Ninguém se comprometeu ainda.</p>';
+      return;
+    }
+
+    let html = '<table>';
+    html += '<thead><tr><th>Data</th><th>Filho</th><th>Item</th><th>Qtde</th><th>Status</th></tr></thead><tbody>';
+
+    lista.forEach(reg => {
+      html += `
+        <tr>
+          <td>${reg.timestamp}</td>
+          <td>${reg.nomeFilho}</td>
+          <td>${reg.descricaoItem || '('+reg.idItem+')'}</td>
+          <td>${reg.qtd}</td>
+          <td>${reg.status}</td>
+        </tr>
+      `;
+    });
+
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+</script>
+
+
