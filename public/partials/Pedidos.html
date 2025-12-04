@@ -136,27 +136,31 @@
   /* =======================
      API HELPERS
   ======================== */
-
   async function apiGetCatalogo(){
-    const res = await fetch('/api/getCatalogoPedidos');
-    if (!res.ok) throw new Error('Falha ao buscar catálogo');
-    return res.json(); // esperado: { catalogo: [...] } ou [...]
+    const res = await fetch('/api/getCatalogoPedidos', { cache:'no-store' });
+    if (!res.ok) throw new Error('Falha ao buscar catálogo: HTTP '+res.status);
+    return res.json();
   }
 
   async function apiSalvarPedido(body){
     const res = await fetch('/api/salvarPedidoConsulente', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      cache: 'no-store'
     });
-    if (!res.ok) throw new Error('Falha ao salvar pedido');
-    return res.json(); // esperado: { ok:true, total:..., msg:... }
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok) {
+      const msg = data?.message || 'Falha ao salvar pedido';
+      throw new Error(msg);
+    }
+    return data;
   }
 
   async function apiGetPainel(){
-    const res = await fetch('/api/getPainelPedidos');
-    if (!res.ok) throw new Error('Falha ao buscar painel');
-    return res.json(); // esperado: { pedidos:[...] } ou [...]
+    const res = await fetch('/api/getPainelPedidos', { cache:'no-store' });
+    if (!res.ok) throw new Error('Falha ao buscar painel: HTTP '+res.status);
+    return res.json();
   }
 
   /* =======================
@@ -167,8 +171,27 @@
     el.innerHTML = '<p>Carregando catálogo...</p>';
     try{
       const data = await apiGetCatalogo();
-      // aceita {catalogo:[...]} ou array direto
-      CATALOGO = Array.isArray(data) ? data : (data.catalogo || []);
+
+      // tolerância a formatos: array direto OU {catalogo:[...]} OU {data:{catalogo:[...]}}
+      const bruto = Array.isArray(data) ? data
+                  : Array.isArray(data?.catalogo) ? data.catalogo
+                  : Array.isArray(data?.data?.catalogo) ? data.data.catalogo
+                  : [];
+
+      // saneia/normaliza e ordena
+      CATALOGO = bruto.map(x=>({
+        idItem: String(x.idItem ?? x.id ?? '').trim() || String(Math.random()).slice(2),
+        categoria: String(x.categoria ?? '').trim(),
+        descricao: String(x.descricao ?? x.item ?? '').trim(),
+        unidade: String(x.unidade ?? x.unid ?? '').trim(),
+        preco: Number(x.preco ?? x.preço ?? 0) || 0
+      }))
+      .filter(x=> x.descricao)  // precisa ter nome
+      .sort((a,b)=>{
+        const c = (a.categoria||'').localeCompare(b.categoria||'', 'pt-BR');
+        return c !== 0 ? c : a.descricao.localeCompare(b.descricao, 'pt-BR');
+      });
+
       renderCatalogo(CATALOGO);
     }catch(err){
       console.error(err);
@@ -193,16 +216,17 @@
     }
     let html = '<table><thead><tr><th>Categoria</th><th>Item</th><th>Unid</th><th>Preço</th><th>Qtd</th><th></th></tr></thead><tbody>';
     lista.forEach(it=>{
-      const precoFmt = formatMoney(it.preco);
+      const precoFmt = formatMoney(Number(it.preco)||0);
       const safeDesc = String(it.descricao||'').replace(/'/g,"\\'");
+      const safeId   = String(it.idItem||'').replace(/"/g,'&quot;');
       html += `
         <tr>
           <td>${it.categoria||''}</td>
           <td>${it.descricao||''}</td>
           <td>${it.unidade||''}</td>
           <td>R$ ${precoFmt}</td>
-          <td><input type="number" id="q_${it.idItem}" class="qtd-input" min="1" step="1" value="1"></td>
-          <td><button class="btn-add" onclick="addCarrinho('${it.idItem}','${safeDesc}','${it.unidade||''}',${it.preco||0})">Adicionar</button></td>
+          <td><input type="number" id="q_${safeId}" class="qtd-input" min="1" step="1" value="1"></td>
+          <td><button class="btn-add" onclick="addCarrinho('${safeId}','${safeDesc}','${it.unidade||''}',${Number(it.preco)||0})">Adicionar</button></td>
         </tr>
       `;
     });
@@ -249,12 +273,13 @@
       </div>
     `;
     CARRINHO.forEach((it,idx)=>{
-      total += it.qtd * it.preco;
+      const pu = Number(it.preco)||0;
+      total += it.qtd * pu;
       html += `
         <div class="row">
           <div>${escapeHtml(it.descricao)} <span class="muted">(${escapeHtml(it.unidade||'')})</span></div>
           <div>${it.qtd}</div>
-          <div>R$ ${formatMoney(it.preco)}</div>
+          <div>R$ ${formatMoney(pu)}</div>
           <div><button class="btn-remover" onclick="remCarrinho(${idx})">Remover</button></div>
         </div>
       `;
@@ -277,6 +302,7 @@
     const nome = document.getElementById('ped-nome').value.trim();
     const cpf = normalizaCpf(document.getElementById('ped-cpf').value);
     const msg = document.getElementById('ped-msg');
+    const btn = document.getElementById('ped-enviar');
 
     msg.className = 'msg';
     msg.textContent = '';
@@ -290,10 +316,11 @@
       descricao: it.descricao,
       unidade: it.unidade,
       qtd: it.qtd,
-      preco: it.preco
+      preco: Number(it.preco)||0
     }));
 
     try{
+      btn.disabled = true;
       msg.textContent = 'Enviando...';
       const resp = await apiSalvarPedido({ nome, cpf, itens: payload });
       if (resp && resp.ok){
@@ -303,13 +330,15 @@
         renderCarrinho();
         carregarPainelPedidos();
       } else {
-        msg.textContent = (resp && resp.msg) || 'Erro ao registrar pedido.';
+        msg.textContent = (resp && (resp.msg||resp.message)) || 'Erro ao registrar pedido.';
         msg.classList.add('erro');
       }
     }catch(err){
       console.error(err);
-      msg.textContent = 'Erro ao registrar pedido.';
+      msg.textContent = err?.message || 'Erro ao registrar pedido.';
       msg.classList.add('erro');
+    }finally{
+      btn.disabled = false;
     }
   }
 
@@ -321,7 +350,7 @@
     el.innerHTML = '<p>Carregando pedidos...</p>';
     try{
       const data = await apiGetPainel();
-      const arr = Array.isArray(data) ? data : (data.pedidos || []);
+      const arr = Array.isArray(data) ? data : (data.pedidos || data.data?.pedidos || []);
       const lista = arr.slice(-20).reverse();
       if (!lista.length){ el.innerHTML = '<p>Nenhum pedido ainda.</p>'; return; }
       let html = '<table><thead><tr><th>Data</th><th>Nome</th><th>Item</th><th>Qtd</th><th>Total</th><th>Status</th></tr></thead><tbody>';
