@@ -408,14 +408,22 @@ document.querySelectorAll('[data-include]').forEach(async el=>{
 /* ===== abas ===== */
 const tabs = document.querySelectorAll('.tab-btn:not(.sobre-tab-btn)');
 const sections = document.querySelectorAll('.section');
+
 tabs.forEach(btn=>{
-  btn.addEventListener('click',()=>{
+  btn.addEventListener('click', ()=>{
     tabs.forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
+
     const tab = btn.dataset.tab;
     sections.forEach(sec=>sec.classList.toggle('active', sec.id===`sec-${tab}`));
+
+    // se abriu a aba Calendário, garante a carga
+    if (tab === 'calendario') {
+      garanteCalendario();
+    }
   });
 });
+
 
 /* ===== sub-abas (Sobre) ===== */
 const sobreBtns   = document.querySelectorAll('.sobre-tab-btn');
@@ -435,59 +443,123 @@ document.getElementById('card-biblioteca')?.addEventListener('click', ()=>docume
 document.getElementById('card-pedidos')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="pedidos"]').click());
 
 /* ===== calendário ===== */
-let eventosCalendario=[];
-const calSelect = document.getElementById('calMesSelect');
-const calLista  = document.getElementById('calLista');
+let eventosCalendario = [];
+let calJaBuscou = false;
+
+const calSelect     = document.getElementById('calMesSelect');
+const calLista      = document.getElementById('calLista');
 const homeProxLista = document.getElementById('homeProximasLista');
 
+function setLoadingCalendario(on=true){
+  if(!calLista) return;
+  calLista.innerHTML = on
+    ? '<div class="muted">Carregando calendário...</div>'
+    : '';
+}
+
+function garanteCalendario(){
+  // busca se ainda não buscamos ou se a lista está vazia
+  if (!calJaBuscou || !eventosCalendario.length) {
+    carregarCalendario();
+  } else {
+    // já temos dados: só renderiza (útil quando o usuário muda de mês)
+    montarFiltroMeses();
+    renderCalendario();
+  }
+}
+
 function carregarCalendario(){
+  setLoadingCalendario(true);
+
+  // IMPORTANTE: o polyfill de gsrun aceita withFailureHandler
   google.script.run
     .withSuccessHandler(res=>{
-      eventosCalendario = res.eventos || [];
+      calJaBuscou = true;
+      eventosCalendario = (res && res.eventos) ? res.eventos : [];
       montarFiltroMeses();
       renderCalendario();
       renderHomeProximas();
+      setLoadingCalendario(false);
+    })
+    .withFailureHandler(err=>{
+      setLoadingCalendario(false);
+      console.error('Erro ao carregar calendário:', err);
+      calLista.innerHTML = `<div class="muted">
+        Falha ao carregar a agenda. ${err?.message ? 'Detalhe: '+err.message : ''}
+      </div>`;
     })
     .getCalendarioEventos();
 }
+
 function montarFiltroMeses(){
+  if(!calSelect) return;
   calSelect.innerHTML = '<option value="">Todos</option>';
   const nomes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const mx={};
+  const mapa={};
   eventosCalendario.forEach(ev=>{
-    if(ev.mesAnoKey && !mx[ev.mesAnoKey]){
+    if(ev.mesAnoKey && !mapa[ev.mesAnoKey]){
       const [ano,mes]=ev.mesAnoKey.split('-');
-      mx[ev.mesAnoKey] = `${nomes[parseInt(mes)-1]}/${ano}`;
+      mapa[ev.mesAnoKey] = `${nomes[parseInt(mes,10)-1]}/${ano}`;
     }
   });
-  Object.keys(mx).sort().forEach(k=>{
-    const o=document.createElement('option'); o.value=k; o.textContent=mx[k]; calSelect.appendChild(o);
+  Object.keys(mapa).sort().forEach(k=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=mapa[k];
+    calSelect.appendChild(o);
   });
 }
+
 function renderCalendario(){
+  if(!calLista) return;
   calLista.innerHTML='';
-  let lista = eventosCalendario;
-  if(calSelect.value) lista = lista.filter(ev=>ev.mesAnoKey===calSelect.value);
-  if(!lista.length){ calLista.innerHTML='<div class="muted">Nenhuma gira neste mês.</div>'; return; }
+  let lista = eventosCalendario || [];
+  if(calSelect?.value) lista = lista.filter(ev=>ev.mesAnoKey===calSelect.value);
+
+  if(!lista.length){
+    calLista.innerHTML='<div class="muted">Nenhuma gira neste mês.</div>';
+    return;
+  }
 
   lista.forEach(ev=>{
     let nome = ev.linha || ev.atividade || '';
     if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
-    const [dia,mes,ano] = ev.dataStr.split('/');
+    const [dia,mes,ano] = (ev.dataStr||'').split('/');
     const row=document.createElement('div');
     row.className='cal-item';
     row.innerHTML = `
       <div class="cal-date">
-        <div class="dia">${dia}</div>
-        <div>${mes}/${ano}</div>
+        <div class="dia">${dia||'--'}</div>
+        <div>${mes||'--'}/${ano||'--'}</div>
       </div>
       <div class="cal-main">
-        <div class="cal-title">Gira ${nome}</div>
+        <div class="cal-title">Gira ${nome||''}</div>
       </div>`;
     calLista.appendChild(row);
   });
 }
-calSelect?.addEventListener('change',renderCalendario);
+
+calSelect?.addEventListener('change', renderCalendario);
+
+/* ===== próximas giras (sidebar) ===== */
+function renderHomeProximas(){
+  if(!homeProxLista) return;
+  homeProxLista.innerHTML='';
+  if(!eventosCalendario.length){
+    homeProxLista.innerHTML='<p class="muted">Sem giras cadastradas.</p>';
+    return;
+  }
+  const hojeISO = new Date().toISOString().slice(0,10);
+  const proximas = eventosCalendario.filter(ev=>ev.iso >= hojeISO).slice(0,4);
+  proximas.forEach(ev=>{
+    let nome = ev.linha || ev.atividade || '';
+    if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
+    const item = document.createElement('div');
+    item.className = 'next-item';
+    item.innerHTML = `<span class="next-date">${ev.dataStr}</span>
+                      <span class="next-badge">Gira ${nome}</span>`;
+    homeProxLista.appendChild(item);
+  });
+}
+
 
 /* ===== próximas giras (sidebar) ===== */
 function renderHomeProximas(){
@@ -518,10 +590,13 @@ function enviarNewsletterEmail(){
 
 /* ===== boot ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  carregarCalendario();
+  // carrega já no início (preenche a sidebar)…
+  garanteCalendario();
+
   const jaMostrou = localStorage.getItem('tufds_newsletter_shown');
   if(!jaMostrou) abrirNewsletterModal();
 });
+
 </script>
 </body>
 </html>
