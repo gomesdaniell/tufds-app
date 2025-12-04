@@ -1,1 +1,158 @@
-<p>Conteúdo de teste – Pedidos</p>
+<section>
+  <div class="bib-toolbar">
+    <div class="bib-left">
+      <input id="bib-search" type="text" placeholder="Buscar por nome do arquivo..." />
+      <select id="bib-type">
+        <option value="all">Todos os tipos</option>
+        <option value="docs">Documentos Google</option>
+        <option value="sheets">Planilhas</option>
+        <option value="slides">Apresentações</option>
+        <option value="pdf">PDFs</option>
+        <option value="img">Imagens</option>
+      </select>
+      <button id="bib-btn-buscar">Buscar</button>
+    </div>
+    <div class="bib-right">
+      <button id="bib-btn-atualizar" title="Recarregar lista">↻ Atualizar</button>
+    </div>
+  </div>
+
+  <div id="bib-lista" class="bib-grid">
+    <div class="muted">Carregando arquivos da biblioteca...</div>
+  </div>
+</section>
+
+<style>
+  .bib-toolbar{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+    flex-wrap:wrap;
+  }
+  .bib-left{
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  }
+  #bib-search{
+    padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; min-width:240px;
+  }
+  #bib-type, .bib-toolbar button{
+    padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer;
+  }
+  .bib-grid{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:12px;
+  }
+  .bib-card{
+    background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px;
+    display:flex; gap:10px; align-items:flex-start;
+  }
+  .bib-ico{
+    font-size:26px; line-height:1; min-width:28px;
+  }
+  .bib-main{
+    display:flex; flex-direction:column; gap:6px; width:100%;
+  }
+  .bib-name{ font-weight:700; }
+  .bib-meta{ font-size:12px; color:#6b7280; }
+  .bib-actions{ display:flex; gap:8px; }
+  .bib-actions a{
+    font-size:13px; text-decoration:none; padding:6px 10px; border-radius:999px;
+    border:1px solid #e5e7eb; color:#111827; background:#f9fafb;
+  }
+  .muted{ color:#6b7280; }
+</style>
+
+<script>
+  // Estado simples
+  let BIB_RESULTS = [];
+
+  // Inicializa imediatamente após include
+  (function initBiblioteca(){
+    bindBibEvents();
+    carregarBiblioteca();
+  })();
+
+  function bindBibEvents(){
+    const btnBuscar = document.getElementById('bib-btn-buscar');
+    const btnAtualizar = document.getElementById('bib-btn-atualizar');
+    if (btnBuscar && !btnBuscar._bound){
+      btnBuscar.addEventListener('click', carregarBiblioteca);
+      btnBuscar._bound = true;
+    }
+    if (btnAtualizar && !btnAtualizar._bound){
+      btnAtualizar.addEventListener('click', ()=>{ 
+        document.getElementById('bib-search').value = '';
+        document.getElementById('bib-type').value = 'all';
+        carregarBiblioteca();
+      });
+      btnAtualizar._bound = true;
+    }
+    const search = document.getElementById('bib-search');
+    if (search && !search._bound){
+      search.addEventListener('keydown', (e)=>{ if(e.key==='Enter') carregarBiblioteca(); });
+      search._bound = true;
+    }
+  }
+
+  function carregarBiblioteca(){
+    const term = (document.getElementById('bib-search')?.value || '').trim();
+    const tipo = (document.getElementById('bib-type')?.value || 'all');
+
+    const lista = document.getElementById('bib-lista');
+    lista.innerHTML = '<div class="muted">Carregando arquivos da biblioteca...</div>';
+
+    google.script.run
+      .withSuccessHandler(renderBiblioteca)
+      .withFailureHandler(err=>{
+        console.error(err);
+        lista.innerHTML = '<div class="muted">Erro ao carregar a biblioteca.</div>';
+      })
+      .getBibliotecaArquivos(term, tipo);
+  }
+
+  function renderBiblioteca(arr){
+    BIB_RESULTS = Array.isArray(arr) ? arr : [];
+    const lista = document.getElementById('bib-lista');
+
+    if (!BIB_RESULTS.length){
+      lista.innerHTML = '<div class="muted">Nenhum arquivo encontrado.</div>';
+      return;
+    }
+
+    let html = '';
+    BIB_RESULTS.forEach(f=>{
+      const sizeKb = f.sizeBytes ? Math.round(f.sizeBytes/1024) : null;
+      const meta = [
+        f.lastUpdated ? `Atualizado: ${f.lastUpdated}` : null,
+        sizeKb ? `${sizeKb} KB` : null
+      ].filter(Boolean).join(' · ');
+
+      html += `
+        <div class="bib-card">
+          <div class="bib-ico">${f.icon || '📦'}</div>
+          <div class="bib-main">
+            <div class="bib-name">${escapeHtml(f.name)}</div>
+            <div class="bib-meta">${escapeHtml(f.mimeType)}${meta ? ' · ' + meta : ''}</div>
+            
+          <div class="bib-actions">
+            <button class="bib-open" data-url="${f.url}">Abrir</button>
+              <button class="bib-copy" data-url="${f.url}" title="Copiar link">Copiar</button>
+          </div>
+
+          </div>
+        </div>
+      `;
+    });
+
+    lista.innerHTML = html;
+  }
+
+  function escapeHtml(s){
+    return String(s||'')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+</script>
