@@ -1,1 +1,129 @@
-<p>Conteúdo de teste – Pedidos</p>
+<h2>Orixás na Umbanda</h2>
+
+<p>
+  Uma das mais impressionantes marcas do estudo da Umbanda é a influência que os
+  Orixás exercem em seus filhos — influência essa que não se descobre pela data
+  de nascimento, mas por rituais próprios da religião.
+</p>
+
+<p>
+  Aqui falamos dos Orixás que fazem parte da linha de trabalho do TUFDS, suas cores,
+  fundamentos, arquétipos dos filhos, algumas ervas associadas e formas de entrega.
+</p>
+
+<p>
+  Também incluímos referências de banhos e amalás, sempre dentro da forma como
+  trabalhamos na casa.
+</p>
+
+<hr>
+
+<h3 style="margin-top:24px;">Escolha um Orixá para conhecer</h3>
+
+<!-- BOTÕES DOS ORIXÁS -->
+<div class="orixa-buttons" style="
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:16px;
+">
+  <button class="orixa-btn" data-orixa="oxala">Oxalá</button>
+  <button class="orixa-btn" data-orixa="ogum">Ogum</button>
+  <button class="orixa-btn" data-orixa="iansa">Iansã</button>
+  <button class="orixa-btn" data-orixa="iemanja">Iemanjá</button>
+  <button class="orixa-btn" data-orixa="oxum">Oxum</button>
+  <button class="orixa-btn" data-orixa="xango">Xangô</button>
+  <button class="orixa-btn" data-orixa="oxossi">Oxóssi</button>
+  <button class="orixa-btn" data-orixa="obaluae">Obaluaê</button>
+  <button class="orixa-btn" data-orixa="nana">Nanã</button>
+</div>
+
+<style>
+  .orixa-btn{
+    padding:10px 12px;
+    font-size:14px;
+    border-radius:999px;
+    border:1px solid #e5e7eb;
+    background:#f9fafb;
+    cursor:pointer;
+    text-align:center;
+    transition:background 0.2s, transform 0.1s, box-shadow 0.1s;
+    font-weight:600;
+  }
+  .orixa-btn:hover{
+    background:#eef2ff;
+    transform:translateY(-1px);
+    box-shadow:0 1px 3px rgba(15,23,42,0.1);
+  }
+  .orixa-btn.active{
+    background:#0f766e;
+    color:#ecfdf5;
+    border-color:#0f766e;
+  }
+
+  .orixa-conteudo-card{
+    margin-top:20px;
+    padding:18px 20px;
+    border-radius:16px;
+    border:1px solid #e5e7eb;
+    background:#ffffff;
+  }
+</style>
+
+<!-- ONDE O TEXTO DO ORIXÁ VAI APARECER -->
+<div id="orixaConteudo" class="orixa-conteudo-card">
+  <!-- Aqui entra o conteúdo carregado via Apps Script -->
+  <p class="muted">Selecione um Orixá para ver a descrição.</p>
+</div>
+
+<script>
+  (function(){
+    const btns = document.querySelectorAll('.orixa-btn');
+    const container = document.getElementById('orixaConteudo');
+
+    const mapaArquivos = {
+      oxala:   'Oxala',
+      ogum:    'Ogum',
+      iansa:   'Iansa',
+      iemanja: 'Iemanja',
+      oxum:    'Oxum',
+      xango:   'Xango',
+      oxossi:  'Oxossi',
+      obaluae: 'Obaluae',
+      nana:    'Nana'
+    };
+
+    function carregarOrixa(chave){
+      const arquivo = mapaArquivos[chave];
+      if (!arquivo) return;
+
+      google.script.run
+        .withSuccessHandler(function(html){
+          container.innerHTML = html;
+        })
+        .getOrixaHtml(arquivo);
+    }
+
+    btns.forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const chave = btn.dataset.orixa;
+
+        // visual dos botões
+        btns.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // carrega conteúdo
+        carregarOrixa(chave);
+      });
+    });
+
+    // Deixa Oxalá selecionado e carregado ao abrir a aba
+    const btnOxala = document.querySelector('.orixa-btn[data-orixa="oxala"]');
+    if (btnOxala) {
+      btnOxala.classList.add('active');
+      carregarOrixa('oxala');
+    }
+  })();
+</script>
+
+
