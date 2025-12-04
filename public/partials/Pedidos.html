@@ -35,12 +35,6 @@
       <button id="ped-enviar" class="btn-primario" disabled>Confirmar pedido</button>
       <div id="ped-msg" class="msg"></div>
     </div>
-
-    <hr>
-    <h3>Últimos pedidos</h3>
-    <div id="ped-painel">
-      <p>Carregando pedidos...</p>
-    </div>
   </div>
 </div>
 
@@ -96,7 +90,7 @@
   (function initPedidos(){
     bindEventosPedidos();
     carregarCatalogo();
-    carregarPainelPedidos();
+    // Painel desativado: não chamamos mais carregarPainelPedidos()
   })();
 
   /* =======================
@@ -157,12 +151,6 @@
     return data;
   }
 
-  async function apiGetPainel(){
-    const res = await fetch('/api/getPainelPedidos', { cache:'no-store' });
-    if (!res.ok) throw new Error('Falha ao buscar painel: HTTP '+res.status);
-    return res.json();
-  }
-
   /* =======================
      CATÁLOGO
   ======================== */
@@ -172,13 +160,11 @@
     try{
       const data = await apiGetCatalogo();
 
-      // tolerância a formatos: array direto OU {catalogo:[...]} OU {data:{catalogo:[...]}}
       const bruto = Array.isArray(data) ? data
                   : Array.isArray(data?.catalogo) ? data.catalogo
                   : Array.isArray(data?.data?.catalogo) ? data.data.catalogo
                   : [];
 
-      // saneia/normaliza e ordena
       CATALOGO = bruto.map(x=>({
         idItem: String(x.idItem ?? x.id ?? '').trim() || String(Math.random()).slice(2),
         categoria: String(x.categoria ?? '').trim(),
@@ -186,7 +172,7 @@
         unidade: String(x.unidade ?? x.unid ?? '').trim(),
         preco: Number(x.preco ?? x.preço ?? 0) || 0
       }))
-      .filter(x=> x.descricao)  // precisa ter nome
+      .filter(x=> x.descricao)
       .sort((a,b)=>{
         const c = (a.categoria||'').localeCompare(b.categoria||'', 'pt-BR');
         return c !== 0 ? c : a.descricao.localeCompare(b.descricao, 'pt-BR');
@@ -328,7 +314,7 @@
         msg.classList.add('ok');
         CARRINHO = [];
         renderCarrinho();
-        carregarPainelPedidos();
+        // painel desativado
       } else {
         msg.textContent = (resp && (resp.msg||resp.message)) || 'Erro ao registrar pedido.';
         msg.classList.add('erro');
@@ -339,36 +325,6 @@
       msg.classList.add('erro');
     }finally{
       btn.disabled = false;
-    }
-  }
-
-  /* =======================
-     PAINEL (ÚLTIMOS PEDIDOS)
-  ======================== */
-  async function carregarPainelPedidos(){
-    const el = document.getElementById('ped-painel');
-    el.innerHTML = '<p>Carregando pedidos...</p>';
-    try{
-      const data = await apiGetPainel();
-      const arr = Array.isArray(data) ? data : (data.pedidos || data.data?.pedidos || []);
-      const lista = arr.slice(-20).reverse();
-      if (!lista.length){ el.innerHTML = '<p>Nenhum pedido ainda.</p>'; return; }
-      let html = '<table><thead><tr><th>Data</th><th>Nome</th><th>Item</th><th>Qtd</th><th>Total</th><th>Status</th></tr></thead><tbody>';
-      lista.forEach(r=>{
-        html += `<tr>
-          <td>${r.timestamp || ''}</td>
-          <td>${escapeHtml(r.nome||'')}</td>
-          <td>${escapeHtml(r.descricao||'')}</td>
-          <td>${r.qtd||''}</td>
-          <td>${r.totalItem ? 'R$ '+formatMoney(r.totalItem) : ''}</td>
-          <td>${r.status||''}</td>
-        </tr>`;
-      });
-      html += '</tbody></table>';
-      el.innerHTML = html;
-    }catch(err){
-      console.error(err);
-      el.innerHTML = '<p>Erro ao carregar pedidos.</p>';
     }
   }
 
@@ -398,7 +354,7 @@
     resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
     if (resto !== parseInt(cpf.substring(9,10))) return false;
     soma=0;
-    for (let i=1;i<=10;i++) soma += parseInt(cpf.substring(i-1,i))* (12-i);
+    for (let i=1;i<=10)i soma += parseInt(cpf.substring(i-1,i))* (12-i);
     resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
     if (resto !== parseInt(cpf.substring(10,11))) return false;
     return true;
