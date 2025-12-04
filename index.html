@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TUFDS App</title>
+<body style="font-family:Arial;text-align:center;padding:40px">
+  <h1>App TUFDS</h1>
+  <p>Teste de migração do Apps Script para Vercel</p>
+  <button id="ping">Testar servidor</button>
+  <pre id="out"></pre>
+
+  <script>
+    document.getElementById('ping').onclick = async () => {
+      const r = await fetch('/api/ping');
+      const j = await r.json();
+      document.getElementById('out').textContent = JSON.stringify(j, null, 2);
+    };
+  </script>
+</body>
+</html>
