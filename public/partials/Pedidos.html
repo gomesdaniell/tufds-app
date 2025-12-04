@@ -1,1 +1,329 @@
-<p>Conteúdo de teste – Pedidos</p>
+<p class="muted">
+  Faça aqui seu pedido de <strong>rosas</strong>, velas e outros itens. Os valores vêm da aba <em>Preco_Velas</em>.
+</p>
+
+<div class="pedidos-layout">
+  <!-- ESQUERDA: CATÁLOGO -->
+  <div class="pedidos-left">
+    <h3>1. Selecione os itens</h3>
+    <div class="ped-filtro">
+      <input id="ped-busca" type="text" placeholder="Buscar item..." />
+      <button id="ped-filtrar">Buscar</button>
+      <button id="ped-reset">Limpar</button>
+    </div>
+    <div id="pedidos-catalogo">
+      <p>Carregando catálogo...</p>
+    </div>
+  </div>
+
+  <!-- DIREITA: DADOS + CARRINHO -->
+  <div class="pedidos-right">
+    <h3>2. Seus dados</h3>
+    <div class="form-grid">
+      <label>Nome*</label>
+      <input id="ped-nome" type="text" required>
+
+      <label>CPF*</label>
+      <input id="ped-cpf" type="text" inputmode="numeric" placeholder="000.000.000-00" required>
+    </div>
+
+    <div class="carrinho-bloco">
+      <h4>Itens selecionados</h4>
+      <div id="ped-carrinho-vazio" class="muted">Nenhum item ainda. Use a lista ao lado.</div>
+      <div id="ped-carrinho" class="carrinho-lista"></div>
+      <div id="ped-total" class="carrinho-total">Total: R$ 0,00</div>
+      <button id="ped-enviar" class="btn-primario" disabled>Confirmar pedido</button>
+      <div id="ped-msg" class="msg"></div>
+    </div>
+
+    <hr>
+    <h3>Últimos pedidos</h3>
+    <div id="ped-painel">
+      <p>Carregando pedidos...</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .pedidos-layout{ display:flex; gap:20px; flex-wrap:wrap; margin-top:8px; }
+  .pedidos-left, .pedidos-right{ flex:1 1 300px; }
+
+  .ped-filtro{ display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .ped-filtro input, .ped-filtro button{
+    padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;
+  }
+  .ped-filtro button{ cursor:pointer; }
+
+  #pedidos-catalogo table{ width:100%; border-collapse:collapse; font-size:0.92rem; }
+  #pedidos-catalogo th, #pedidos-catalogo td{
+    padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:left;
+  }
+  #pedidos-catalogo th{ background:#f9fafb; }
+
+  .qtd-input{ width:70px; padding:6px 8px; border:1px solid #d1d5db; border-radius:8px; }
+  .btn-add{
+    padding:6px 10px; border:none; border-radius:999px; background:#0f766e; color:#fff; cursor:pointer;
+  }
+
+  .form-grid{ display:grid; grid-template-columns:120px 1fr; gap:8px 12px; align-items:center; }
+  .form-grid input{
+    padding:8px 10px; border:1px solid #d1d5db; border-radius:8px;
+  }
+
+  .carrinho-bloco{ margin-top:12px; padding:12px; border:1px solid #e5e7eb; border-radius:12px; background:#f9fafb; }
+  .carrinho-lista .row{
+    display:grid; grid-template-columns:1fr 110px 120px 80px; gap:8px; align-items:center; padding:6px 0;
+    border-bottom:1px dashed #e5e7eb;
+  }
+  .carrinho-lista .row:last-child{ border-bottom:none; }
+  .carrinho-total{ margin-top:8px; font-weight:700; }
+  .btn-remover{ border:none; border-radius:8px; padding:4px 8px; background:#fee2e2; color:#991b1b; cursor:pointer; }
+  .msg{ margin-top:8px; font-size:0.9rem; }
+  .msg.ok{ color:#15803d; }
+  .msg.erro{ color:#b91c1c; }
+</style>
+
+<script>
+  let CATALOGO = [];
+  let CARRINHO = [];
+
+  (function initPedidos(){
+    bindEventosPedidos();
+    carregarCatalogo();
+    carregarPainelPedidos();
+  })();
+
+  function bindEventosPedidos(){
+    const busca = document.getElementById('ped-busca');
+    const btnFiltrar = document.getElementById('ped-filtrar');
+    const btnReset = document.getElementById('ped-reset');
+    const cpf = document.getElementById('ped-cpf');
+    const enviar = document.getElementById('ped-enviar');
+
+    if (btnFiltrar && !btnFiltrar._b){
+      btnFiltrar.addEventListener('click', ()=> renderCatalogo(filtraCatalogo(busca.value)));
+      btnFiltrar._b = true;
+    }
+    if (btnReset && !btnReset._b){
+      btnReset.addEventListener('click', ()=>{
+        busca.value='';
+        renderCatalogo(CATALOGO);
+      });
+      btnReset._b = true;
+    }
+    if (busca && !busca._b){
+      busca.addEventListener('keydown', e=>{ if(e.key==='Enter') renderCatalogo(filtraCatalogo(busca.value)); });
+      busca._b = true;
+    }
+    if (cpf && !cpf._b){
+      cpf.addEventListener('input', mascaraCpf);
+      cpf._b = true;
+    }
+    if (enviar && !enviar._b){
+      enviar.addEventListener('click', enviarPedido);
+      enviar._b = true;
+    }
+  }
+
+  function carregarCatalogo(){
+    google.script.run
+      .withSuccessHandler(res=>{
+        CATALOGO = Array.isArray(res) ? res : [];
+        renderCatalogo(CATALOGO);
+      })
+      .withFailureHandler(err=>{
+        console.error(err);
+        document.getElementById('pedidos-catalogo').innerHTML = '<p>Erro ao carregar catálogo.</p>';
+      })
+      .getCatalogoPedidos();
+  }
+
+  function filtraCatalogo(term){
+    const t = String(term||'').toLowerCase().trim();
+    if (!t) return CATALOGO;
+    return CATALOGO.filter(x => 
+      (x.descricao||'').toLowerCase().includes(t) || (x.categoria||'').toLowerCase().includes(t)
+    );
+  }
+
+  function renderCatalogo(lista){
+    const el = document.getElementById('pedidos-catalogo');
+    if (!lista || !lista.length){
+      el.innerHTML = '<p>Nenhum item no catálogo.</p>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Categoria</th><th>Item</th><th>Unid</th><th>Preço</th><th>Qtd</th><th></th></tr></thead><tbody>';
+    lista.forEach(it=>{
+      const precoFmt = formatMoney(it.preco);
+      const safeDesc = String(it.descricao||'').replace(/'/g,"\\'");
+      html += `
+        <tr>
+          <td>${it.categoria||''}</td>
+          <td>${it.descricao}</td>
+          <td>${it.unidade||''}</td>
+          <td>R$ ${precoFmt}</td>
+          <td><input type="number" id="q_${it.idItem}" class="qtd-input" min="1" step="1" value="1"></td>
+          <td><button class="btn-add" onclick="addCarrinho('${it.idItem}','${safeDesc}','${it.unidade||''}',${it.preco})">Adicionar</button></td>
+        </tr>
+      `;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  function addCarrinho(id, desc, unid, preco){
+    const input = document.getElementById('q_'+id);
+    let qtd = parseInt(input && input.value ? input.value : '1', 10);
+    if (isNaN(qtd) || qtd<=0) qtd=1;
+
+    const existente = CARRINHO.find(x=>x.idItem===id);
+    if (existente){
+      existente.qtd += qtd;
+    } else {
+      CARRINHO.push({ idItem:id, descricao:desc, unidade:unid, preco:Number(preco||0), qtd:qtd });
+    }
+    renderCarrinho();
+  }
+
+  function renderCarrinho(){
+    const boxVazio = document.getElementById('ped-carrinho-vazio');
+    const box = document.getElementById('ped-carrinho');
+    const totalEl = document.getElementById('ped-total');
+    const btnEnviar = document.getElementById('ped-enviar');
+
+    if (!CARRINHO.length){
+      boxVazio.style.display = 'block';
+      box.innerHTML = '';
+      totalEl.textContent = 'Total: R$ 0,00';
+      btnEnviar.disabled = true;
+      return;
+    }
+    boxVazio.style.display = 'none';
+
+    let total = 0;
+    let html = `
+      <div class="row" style="font-weight:700">
+        <div>Item</div><div>Qtd</div><div>Preço Unit.</div><div></div>
+      </div>
+    `;
+    CARRINHO.forEach((it,idx)=>{
+      total += it.qtd * it.preco;
+      html += `
+        <div class="row">
+          <div>${escapeHtml(it.descricao)} <span class="muted">(${escapeHtml(it.unidade||'')})</span></div>
+          <div>${it.qtd}</div>
+          <div>R$ ${formatMoney(it.preco)}</div>
+          <div><button class="btn-remover" onclick="remCarrinho(${idx})">Remover</button></div>
+        </div>
+      `;
+    });
+
+    box.innerHTML = html;
+    totalEl.textContent = 'Total: R$ ' + formatMoney(total);
+    btnEnviar.disabled = false;
+  }
+
+  function remCarrinho(idx){
+    CARRINHO.splice(idx,1);
+    renderCarrinho();
+  }
+
+  function enviarPedido(){
+    const nome = document.getElementById('ped-nome').value.trim();
+    const cpf = normalizaCpf(document.getElementById('ped-cpf').value);
+    const msg = document.getElementById('ped-msg');
+
+    msg.className = 'msg';
+    msg.textContent = '';
+
+    if (!nome) { msg.textContent = 'Informe seu nome.'; msg.classList.add('erro'); return; }
+    if (!cpf || !validaCPF(cpf)) { msg.textContent = 'CPF inválido.'; msg.classList.add('erro'); return; }
+    if (!CARRINHO.length) { msg.textContent = 'Adicione pelo menos um item.'; msg.classList.add('erro'); return; }
+
+    const payload = CARRINHO.map(it=>({
+      idItem: it.idItem,
+      descricao: it.descricao,
+      unidade: it.unidade,
+      qtd: it.qtd,
+      preco: it.preco
+    }));
+
+    google.script.run
+      .withSuccessHandler(resp=>{
+        if (resp && resp.ok){
+          msg.textContent = `Pedido registrado. Total: R$ ${formatMoney(resp.total||0)}.`;
+          msg.classList.add('ok');
+          CARRINHO = [];
+          renderCarrinho();
+          carregarPainelPedidos();
+        } else {
+          msg.textContent = (resp && resp.msg) || 'Erro ao registrar pedido.';
+          msg.classList.add('erro');
+        }
+      })
+      .withFailureHandler(err=>{
+        console.error(err);
+        msg.textContent = 'Erro ao registrar pedido.';
+        msg.classList.add('erro');
+      })
+      .salvarPedidoConsulente(nome, cpf, JSON.stringify(payload));
+  }
+
+  function carregarPainelPedidos(){
+    google.script.run
+      .withSuccessHandler(lista=>{
+        const el = document.getElementById('ped-painel');
+        const arr = Array.isArray(lista) ? lista.slice(-20).reverse() : [];
+        if (!arr.length){ el.innerHTML = '<p>Nenhum pedido ainda.</p>'; return; }
+        let html = '<table><thead><tr><th>Data</th><th>Nome</th><th>Item</th><th>Qtd</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+        arr.forEach(r=>{
+          html += `<tr>
+            <td>${r.timestamp}</td>
+            <td>${escapeHtml(r.nome||'')}</td>
+            <td>${escapeHtml(r.descricao||'')}</td>
+            <td>${r.qtd||''}</td>
+            <td>${r.totalItem ? 'R$ '+formatMoney(r.totalItem) : ''}</td>
+            <td>${r.status||''}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        el.innerHTML = html;
+      })
+      .withFailureHandler(err=>{
+        console.error(err);
+        document.getElementById('ped-painel').innerHTML = '<p>Erro ao carregar pedidos.</p>';
+      })
+      .getPainelPedidos();
+  }
+
+  /* ===== Utilitários ===== */
+  function formatMoney(v){
+    const n = Number(v||0);
+    return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function escapeHtml(s){
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function mascaraCpf(e){
+    let v = e.target.value.replace(/\D/g,'').slice(0,11);
+    v = v.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+    e.target.value = v;
+  }
+  function normalizaCpf(s){ return String(s||'').replace(/\D/g,''); }
+  function validaCPF(cpf){
+    cpf = (cpf||'').replace(/\D/g,'');
+    if (!cpf || cpf.length !== 11) return false;
+    if (/^(\d)\1+$/.test(cpf)) return false;
+    let soma=0, resto;
+    for (let i=1;i<=9;i++) soma += parseInt(cpf.substring(i-1,i))* (11-i);
+    resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
+    if (resto !== parseInt(cpf.substring(9,10))) return false;
+    soma=0;
+    for (let i=1;i<=10;i++) soma += parseInt(cpf.substring(i-1,i))* (12-i);
+    resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
+    if (resto !== parseInt(cpf.substring(10,11))) return false;
+    return true;
+  }
+</script>
+
