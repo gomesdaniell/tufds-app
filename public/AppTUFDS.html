@@ -396,14 +396,40 @@
 </div>
 
 <script>
+<script>
 /* ===== includes (partials) ===== */
-document.querySelectorAll('[data-include]').forEach(async el=>{
+async function loadPartial(el) {
   const url = el.getAttribute('data-include');
-  try{
+  try {
     const html = await (await fetch(url)).text();
+
+    // injeta o HTML
     el.innerHTML = html;
-  }catch(e){ el.innerHTML = '<p class="muted">Conteúdo indisponível.</p>'; }
-});
+
+    // executa <script> internos do partial
+    const scripts = el.querySelectorAll('script');
+    scripts.forEach(old => {
+      const s = document.createElement('script');
+      // preserva type, src e texto
+      if (old.type) s.type = old.type;
+      if (old.src) {
+        s.src = old.src;
+      } else {
+        s.text = old.textContent || '';
+      }
+      // garante execução após inserir
+      old.parentNode.replaceChild(s, old);
+    });
+  } catch (e) {
+    console.error('Erro ao carregar partial', url, e);
+    el.innerHTML = '<p class="muted">Conteúdo indisponível.</p>';
+  }
+}
+
+// carrega todos os partials e executa scripts contidos
+document.querySelectorAll('[data-include]').forEach(loadPartial);
+</script>
+
 
 /* ===== abas ===== */
 const tabs = document.querySelectorAll('.tab-btn:not(.sobre-tab-btn)');
