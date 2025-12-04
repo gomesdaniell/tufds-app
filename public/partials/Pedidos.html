@@ -84,15 +84,24 @@
 </style>
 
 <script>
+  /* =======================
+     ESTADO
+  ======================== */
   let CATALOGO = [];
   let CARRINHO = [];
 
+  /* =======================
+     BOOT
+  ======================== */
   (function initPedidos(){
     bindEventosPedidos();
     carregarCatalogo();
     carregarPainelPedidos();
   })();
 
+  /* =======================
+     EVENTOS
+  ======================== */
   function bindEventosPedidos(){
     const busca = document.getElementById('ped-busca');
     const btnFiltrar = document.getElementById('ped-filtrar');
@@ -106,8 +115,7 @@
     }
     if (btnReset && !btnReset._b){
       btnReset.addEventListener('click', ()=>{
-        busca.value='';
-        renderCatalogo(CATALOGO);
+        busca.value=''; renderCatalogo(CATALOGO);
       });
       btnReset._b = true;
     }
@@ -125,24 +133,55 @@
     }
   }
 
-  function carregarCatalogo(){
-    google.script.run
-      .withSuccessHandler(res=>{
-        CATALOGO = Array.isArray(res) ? res : [];
-        renderCatalogo(CATALOGO);
-      })
-      .withFailureHandler(err=>{
-        console.error(err);
-        document.getElementById('pedidos-catalogo').innerHTML = '<p>Erro ao carregar catálogo.</p>';
-      })
-      .getCatalogoPedidos();
+  /* =======================
+     API HELPERS
+  ======================== */
+
+  async function apiGetCatalogo(){
+    const res = await fetch('/api/getCatalogoPedidos');
+    if (!res.ok) throw new Error('Falha ao buscar catálogo');
+    return res.json(); // esperado: { catalogo: [...] } ou [...]
+  }
+
+  async function apiSalvarPedido(body){
+    const res = await fetch('/api/salvarPedidoConsulente', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('Falha ao salvar pedido');
+    return res.json(); // esperado: { ok:true, total:..., msg:... }
+  }
+
+  async function apiGetPainel(){
+    const res = await fetch('/api/getPainelPedidos');
+    if (!res.ok) throw new Error('Falha ao buscar painel');
+    return res.json(); // esperado: { pedidos:[...] } ou [...]
+  }
+
+  /* =======================
+     CATÁLOGO
+  ======================== */
+  async function carregarCatalogo(){
+    const el = document.getElementById('pedidos-catalogo');
+    el.innerHTML = '<p>Carregando catálogo...</p>';
+    try{
+      const data = await apiGetCatalogo();
+      // aceita {catalogo:[...]} ou array direto
+      CATALOGO = Array.isArray(data) ? data : (data.catalogo || []);
+      renderCatalogo(CATALOGO);
+    }catch(err){
+      console.error(err);
+      el.innerHTML = '<p>Erro ao carregar catálogo.</p>';
+    }
   }
 
   function filtraCatalogo(term){
     const t = String(term||'').toLowerCase().trim();
     if (!t) return CATALOGO;
-    return CATALOGO.filter(x => 
-      (x.descricao||'').toLowerCase().includes(t) || (x.categoria||'').toLowerCase().includes(t)
+    return CATALOGO.filter(x =>
+      (x.descricao||'').toLowerCase().includes(t) ||
+      (x.categoria||'').toLowerCase().includes(t)
     );
   }
 
@@ -159,11 +198,11 @@
       html += `
         <tr>
           <td>${it.categoria||''}</td>
-          <td>${it.descricao}</td>
+          <td>${it.descricao||''}</td>
           <td>${it.unidade||''}</td>
           <td>R$ ${precoFmt}</td>
           <td><input type="number" id="q_${it.idItem}" class="qtd-input" min="1" step="1" value="1"></td>
-          <td><button class="btn-add" onclick="addCarrinho('${it.idItem}','${safeDesc}','${it.unidade||''}',${it.preco})">Adicionar</button></td>
+          <td><button class="btn-add" onclick="addCarrinho('${it.idItem}','${safeDesc}','${it.unidade||''}',${it.preco||0})">Adicionar</button></td>
         </tr>
       `;
     });
@@ -171,6 +210,9 @@
     el.innerHTML = html;
   }
 
+  /* =======================
+     CARRINHO
+  ======================== */
   function addCarrinho(id, desc, unid, preco){
     const input = document.getElementById('q_'+id);
     let qtd = parseInt(input && input.value ? input.value : '1', 10);
@@ -228,7 +270,10 @@
     renderCarrinho();
   }
 
-  function enviarPedido(){
+  /* =======================
+     ENVIAR PEDIDO
+  ======================== */
+  async function enviarPedido(){
     const nome = document.getElementById('ped-nome').value.trim();
     const cpf = normalizaCpf(document.getElementById('ped-cpf').value);
     const msg = document.getElementById('ped-msg');
@@ -248,55 +293,59 @@
       preco: it.preco
     }));
 
-    google.script.run
-      .withSuccessHandler(resp=>{
-        if (resp && resp.ok){
-          msg.textContent = `Pedido registrado. Total: R$ ${formatMoney(resp.total||0)}.`;
-          msg.classList.add('ok');
-          CARRINHO = [];
-          renderCarrinho();
-          carregarPainelPedidos();
-        } else {
-          msg.textContent = (resp && resp.msg) || 'Erro ao registrar pedido.';
-          msg.classList.add('erro');
-        }
-      })
-      .withFailureHandler(err=>{
-        console.error(err);
-        msg.textContent = 'Erro ao registrar pedido.';
+    try{
+      msg.textContent = 'Enviando...';
+      const resp = await apiSalvarPedido({ nome, cpf, itens: payload });
+      if (resp && resp.ok){
+        msg.textContent = `Pedido registrado. Total: R$ ${formatMoney(resp.total||0)}.`;
+        msg.classList.add('ok');
+        CARRINHO = [];
+        renderCarrinho();
+        carregarPainelPedidos();
+      } else {
+        msg.textContent = (resp && resp.msg) || 'Erro ao registrar pedido.';
         msg.classList.add('erro');
-      })
-      .salvarPedidoConsulente(nome, cpf, JSON.stringify(payload));
+      }
+    }catch(err){
+      console.error(err);
+      msg.textContent = 'Erro ao registrar pedido.';
+      msg.classList.add('erro');
+    }
   }
 
-  function carregarPainelPedidos(){
-    google.script.run
-      .withSuccessHandler(lista=>{
-        const el = document.getElementById('ped-painel');
-        const arr = Array.isArray(lista) ? lista.slice(-20).reverse() : [];
-        if (!arr.length){ el.innerHTML = '<p>Nenhum pedido ainda.</p>'; return; }
-        let html = '<table><thead><tr><th>Data</th><th>Nome</th><th>Item</th><th>Qtd</th><th>Total</th><th>Status</th></tr></thead><tbody>';
-        arr.forEach(r=>{
-          html += `<tr>
-            <td>${r.timestamp}</td>
-            <td>${escapeHtml(r.nome||'')}</td>
-            <td>${escapeHtml(r.descricao||'')}</td>
-            <td>${r.qtd||''}</td>
-            <td>${r.totalItem ? 'R$ '+formatMoney(r.totalItem) : ''}</td>
-            <td>${r.status||''}</td>
-          </tr>`;
-        });
-        html += '</tbody></table>';
-        el.innerHTML = html;
-      })
-      .withFailureHandler(err=>{
-        console.error(err);
-        document.getElementById('ped-painel').innerHTML = '<p>Erro ao carregar pedidos.</p>';
-      })
-      .getPainelPedidos();
+  /* =======================
+     PAINEL (ÚLTIMOS PEDIDOS)
+  ======================== */
+  async function carregarPainelPedidos(){
+    const el = document.getElementById('ped-painel');
+    el.innerHTML = '<p>Carregando pedidos...</p>';
+    try{
+      const data = await apiGetPainel();
+      const arr = Array.isArray(data) ? data : (data.pedidos || []);
+      const lista = arr.slice(-20).reverse();
+      if (!lista.length){ el.innerHTML = '<p>Nenhum pedido ainda.</p>'; return; }
+      let html = '<table><thead><tr><th>Data</th><th>Nome</th><th>Item</th><th>Qtd</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+      lista.forEach(r=>{
+        html += `<tr>
+          <td>${r.timestamp || ''}</td>
+          <td>${escapeHtml(r.nome||'')}</td>
+          <td>${escapeHtml(r.descricao||'')}</td>
+          <td>${r.qtd||''}</td>
+          <td>${r.totalItem ? 'R$ '+formatMoney(r.totalItem) : ''}</td>
+          <td>${r.status||''}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }catch(err){
+      console.error(err);
+      el.innerHTML = '<p>Erro ao carregar pedidos.</p>';
+    }
   }
 
-  /* ===== Utilitários ===== */
+  /* =======================
+     UTILITÁRIOS
+  ======================== */
   function formatMoney(v){
     const n = Number(v||0);
     return n.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -326,4 +375,3 @@
     return true;
   }
 </script>
-
