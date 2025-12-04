@@ -1,100 +1,108 @@
-// /api/getCalendarioEventos.js
+// api/getCalendarioEventos.js
 import { google } from 'googleapis';
-
-const ABA_CALENDARIO = 'Calendário'; // nome exato da sua aba
-
-function normalizeHeader(s='') {
-  return String(s)
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-    .toLowerCase().replace(/\s+/g,' ').trim();
-}
-function findColIndex(header, candidates) {
-  const H = header.map(normalizeHeader);
-  const C = candidates.map(normalizeHeader);
-  for (let i=0;i<H.length;i++){
-    for (let j=0;j<C.length;j++){
-      if (H[i]===C[j] || H[i].includes(C[j])) return i;
-    }
-  }
-  return -1;
-}
-function parseDataBR(raw){
-  if(!raw) return null;
-  if(raw instanceof Date) return raw;
-  const p = String(raw).trim().split('/');
-  if(p.length!==3) return null;
-  const [dd,mm,aa] = p.map(Number);
-  if(!dd||!mm||!aa) return null;
-  return new Date(aa, mm-1, dd);
-}
-function pad(n){ return String(n).padStart(2,'0'); }
-
-async function authSheets() {
-  const jwt = new google.auth.JWT(
-    process.env.GOOGLE_SERVICE_EMAIL,
-    undefined,
-    (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-    ['https://www.googleapis.com/auth/spreadsheets.readonly']
-  );
-  await jwt.authorize();
-  return google.sheets({ version: 'v4', auth: jwt });
-}
 
 export default async function handler(req, res) {
   try {
-    const sheets = await authSheets();
-    const range = `'${ABA_CALENDARIO}'!A:Z`;
+    const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
+    const SERVICE_EMAIL = process.env.GOOGLE_SERVICE_EMAIL;
+    let PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY;
 
-    const { data } = await sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.GOOGLE_SHEETS_ID,
-      range
+    // Validações claras (mostram qual var faltou)
+    if (!SHEET_ID)      return res.status(500).json({ error: 'Missing GOOGLE_SHEETS_ID' });
+    if (!SERVICE_EMAIL) return res.status(500).json({ error: 'Missing GOOGLE_SERVICE_EMAIL' });
+    if (!PRIVATE_KEY)   return res.status(500).json({ error: 'Missing GOOGLE_PRIVATE_KEY' });
+
+    // Converte "\n" literais para quebras reais
+    PRIVATE_KEY = PRIVATE_KEY.replace(/\\n/g, '\n');
+
+    const auth = new google.auth.JWT({
+      email: SERVICE_EMAIL,
+      key: PRIVATE_KEY,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly']
     });
 
-    const rows = data.values || [];
+    const sheets = google.sheets({ version: 'v4', auth });
+    // Leia a aba "Calendário" inteira (ajuste o range conforme seu header)
+    const resp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Calendário!A:Z'
+    });
+
+    const rows = resp.data.values || [];
     if (rows.length < 2) return res.status(200).json({ eventos: [] });
 
-    const header = rows[0];
-    const ixData    = findColIndex(header, ['data']);
-    const ixDiaSem  = findColIndex(header, ['dia da semana','dia semana']);
-    const ixSemana  = findColIndex(header, ['semana']);
-    const ixFeriado = findColIndex(header, ['feriado/comemoração','feriado']);
-    const ixTipoLn  = findColIndex(header, ['tipolinha','tipo']);
-    const ixAtiv    = findColIndex(header, ['atividade']);
-    const ixLinha   = findColIndex(header, ['linha']);
+    const header = rows[0].map(h => String(h || '').trim());
+
+    // helpers de localização de colunas (mesma lógica que você já usa)
+    const norm = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                     .toLowerCase().replace(/\s+/g,' ').trim();
+    const findCol = (cands) => {
+      const H = header.map(norm);
+      const C = cands.map(norm);
+      for (let i = 0; i < H.length; i++) {
+        for (let j = 0; j < C.length; j++) {
+          if (H[i] === C[j] || H[i].includes(C[j])) return i;
+        }
+      }
+      return -1;
+    };
+
+    const ixData    = findCol(['data']);
+    const ixDiaSem  = findCol(['dia da semana','dia semana']);
+    const ixSemana  = findCol(['semana']);
+    const ixFeriado = findCol(['feriado/comemoração','feriado']);
+    const ixTipoLn  = findCol(['tipolinha','tipo']);
+    const ixAtiv    = findCol(['atividade']);
+    const ixLinha   = findCol(['linha']);
+
+    const TZ = 'America/Manaus';
+    const parseBR = (s) => {
+      if (s instanceof Date) return s;
+      const str = String(s || '').trim();
+      const p = str.split('/');
+      if (p.length !== 3) return null;
+      const [dd, mm, yyyy] = p.map(x => parseInt(x, 10));
+      if (!dd || !mm || !yyyy) return null;
+      return new Date(yyyy, mm - 1, dd);
+    };
 
     const eventos = [];
     for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      const dt  = parseDataBR(row[ixData]);
+      const r = rows[i];
+      const dt = parseBR(r[ixData]);
       if (!dt) continue;
 
-      const tipoLinha = String(row[ixTipoLn] || '').trim().toLowerCase();
+      const tipoLinha = String(r[ixTipoLn] || '').trim().toLowerCase();
       if (tipoLinha !== 'gira') continue;
 
-      const atividade = String(row[ixAtiv] || '').trim();
+      const atividade = String(r[ixAtiv] || '').trim();
       if (atividade.toLowerCase() === 'desenvolvimento') continue;
 
-      const dia = pad(dt.getDate()), mes = pad(dt.getMonth()+1), ano = dt.getFullYear();
+      const pad = (n) => String(n).padStart(2, '0');
+      const dia = pad(dt.getDate());
+      const mes = pad(dt.getMonth() + 1);
+      const ano = String(dt.getFullYear());
 
       eventos.push({
-        dataStr   : `${dia}/${mes}/${ano}`,
-        iso       : `${ano}-${mes}-${dia}`,
-        diaSemana : ixDiaSem  >=0 ? row[ixDiaSem]  : '',
-        semana    : ixSemana  >=0 ? row[ixSemana]  : '',
-        feriado   : ixFeriado >=0 ? row[ixFeriado] : '',
-        tipoLinha : 'Gira',
+        dataStr: `${dia}/${mes}/${ano}`,
+        iso: `${ano}-${mes}-${dia}`,
+        diaSemana: ixDiaSem >= 0 ? r[ixDiaSem] : '',
+        semana: ixSemana >= 0 ? r[ixSemana] : '',
+        feriado: ixFeriado >= 0 ? r[ixFeriado] : '',
+        tipoLinha: 'Gira',
         atividade,
-        linha     : ixLinha   >=0 ? row[ixLinha]   : '',
+        linha: ixLinha >= 0 ? r[ixLinha] : '',
         mes,
         ano,
-        mesAnoKey : `${ano}-${mes}`
+        mesAnoKey: `${ano}-${mes}`,
       });
     }
 
-    eventos.sort((a,b)=> a.iso.localeCompare(b.iso));
-    res.status(200).json({ eventos });
+    eventos.sort((a, b) => a.iso.localeCompare(b.iso));
+    return res.status(200).json({ eventos });
   } catch (err) {
-    console.error('getCalendarioEventos ERROR', err);
-    res.status(500).json({ error: String(err?.message || err) });
+    // Log útil em dev; na Vercel, aparece nos Logs
+    console.error('getCalendarioEventos error:', err);
+    return res.status(500).json({ error: String(err && err.message || err) });
   }
 }
