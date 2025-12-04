@@ -1,8 +1,0 @@
-{
-  "name": "tufds-app",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "googleapis": "^139.0.0"
-  }
-}
