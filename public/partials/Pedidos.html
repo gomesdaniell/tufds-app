@@ -90,7 +90,7 @@
   (function initPedidos(){
     bindEventosPedidos();
     carregarCatalogo();
-    // Painel desativado: não chamamos mais carregarPainelPedidos()
+    // Painel desativado
   })();
 
   /* =======================
@@ -159,7 +159,6 @@
     el.innerHTML = '<p>Carregando catálogo...</p>';
     try{
       const data = await apiGetCatalogo();
-
       const bruto = Array.isArray(data) ? data
                   : Array.isArray(data?.catalogo) ? data.catalogo
                   : Array.isArray(data?.data?.catalogo) ? data.data.catalogo
@@ -314,7 +313,6 @@
         msg.classList.add('ok');
         CARRINHO = [];
         renderCarrinho();
-        // painel desativado
       } else {
         msg.textContent = (resp && (resp.msg||resp.message)) || 'Erro ao registrar pedido.';
         msg.classList.add('erro');
@@ -354,9 +352,10 @@
     resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
     if (resto !== parseInt(cpf.substring(9,10))) return false;
     soma=0;
-    for (let i=1;i<=10)i soma += parseInt(cpf.substring(i-1,i))* (12-i);
+    for (let i=1;i<=10;i++) soma += parseInt(cpf.substring(i-1,i))* (12-i); /* <-- corrigido: i++ */
     resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
     if (resto !== parseInt(cpf.substring(10,11))) return false;
     return true;
   }
 </script>
+
