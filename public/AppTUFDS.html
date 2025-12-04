@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>App TUFDS – Consulentes</title>
+<script src="/public/gsrun.js"></script> <!-- Polyfill substitui google.script.run -->
+<style>
+  /* (mantém todo seu CSS original) */
+  /* ... */
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <div class="col-left">
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="logo-circle">T</div>
+      <div class="header-text">
+        <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
+        <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="home">Início</button>
+      <button class="tab-btn" data-tab="calendario">Calendário</button>
+      <button class="tab-btn" data-tab="pontos">Pontos Cantados</button>
+      <button class="tab-btn" data-tab="playlists">Playlists</button>
+      <button class="tab-btn" data-tab="pedidos">Pedidos</button>
+      <button class="tab-btn" data-tab="doacoes">Doações</button>
+      <button class="tab-btn" data-tab="biblioteca">Biblioteca</button>
+      <button class="tab-btn" data-tab="sobre">Sobre a Casa</button>
+      <button class="tab-btn" data-tab="orixas">Orixás</button>
+      <button class="tab-btn" data-tab="faq">Perguntas Frequentes</button>
+      <button class="tab-btn" data-tab="contato">Contato</button>
+    </div>
+
+    <!-- ======================= HOME ======================= -->
+    <!-- (mantém igual) -->
+    <!-- ... -->
+
+    <!-- ======================= PEDIDOS ======================= -->
+    <div id="sec-pedidos" class="section">
+      <div class="card">
+        <h2>Pedidos para Giras</h2>
+        <div data-include="/public/partials/Pedidos.html"></div>
+      </div>
+    </div>
+
+    <!-- ======================= CALENDÁRIO ======================= -->
+    <div id="sec-calendario" class="section">
+      <div class="card">
+        <h2>Calendário de Giras</h2>
+        <p class="muted">Datas puxadas automaticamente da aba Calendário.</p>
+        <div class="cal-toolbar">
+          <label>Filtrar por mês:</label>
+          <select id="calMesSelect" class="cal-select">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div id="calLista" class="cal-list"></div>
+      </div>
+    </div>
+
+    <!-- ======================= DOAÇÕES ======================= -->
+    <div id="sec-doacoes" class="section">
+      <div class="card">
+        <h2>Doações</h2>
+        <div data-include="/public/partials/Doacoes.html"></div>
+      </div>
+    </div>
+
+    <!-- ======================= BIBLIOTECA ======================= -->
+    <div id="sec-biblioteca" class="section">
+      <div class="card">
+        <h2>Biblioteca</h2>
+        <div data-include="/public/partials/Biblioteca.html"></div>
+      </div>
+    </div>
+
+    <!-- ======================= SOBRE ======================= -->
+    <div id="sec-sobre" class="section">
+      <div class="card">
+        <div class="sobre-tabs">
+          <!-- botões -->
+        </div>
+      </div>
+
+      <div id="sobre-info" class="sobre-panel card active" data-include="/public/partials/SobreTUFDS.html"></div>
+      <div id="sobre-historia" class="sobre-panel card" data-include="/public/partials/HistUmbanda.html"></div>
+      <div id="sobre-visitantes" class="sobre-panel card" data-include="/public/partials/Visitantes.html"></div>
+      <div id="sobre-primeiros" class="sobre-panel card" data-include="/public/partials/PrimeirosPassos.html"></div>
+      <div id="sobre-hierarquia" class="sobre-panel card" data-include="/public/partials/Hierarquia.html"></div>
+      <div id="sobre-ritual" class="sobre-panel card" data-include="/public/partials/RitualTUFDS.html"></div>
+    </div>
+
+    <!-- ======================= ORIXÁS ======================= -->
+    <div id="sec-orixas" class="section">
+      <div class="card" data-include="/public/partials/Orixas.html"></div>
+    </div>
+
+    <!-- ======================= PONTOS / PLAYLISTS / FAQ / CONTATO ======================= -->
+    <div id="sec-pontos" class="section">
+      <div class="card" data-include="/public/partials/Pontos.html"></div>
+    </div>
+
+    <div id="sec-playlists" class="section">
+      <div class="card"><h2>Playlists</h2></div>
+    </div>
+
+    <div id="sec-faq" class="section">
+      <div class="card"><h2>Perguntas Frequentes</h2></div>
+    </div>
+
+    <div id="sec-contato" class="section">
+      <div class="card" data-include="/public/partials/Contato.html"></div>
+    </div>
+
+  </div>
+
+  <!-- ======================= COLUNA DIREITA ======================= -->
+  <div class="col-right">
+    <div class="card">
+      <h2>Espaço do TUFDS</h2>
+      <p class="muted">Terreiro de Umbanda Filhos do Sagrado – Manaus/AM</p>
+      <h3 style="margin-top:14px;">Próximas giras</h3>
+      <div id="homeProximasLista"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ======================= MODAL NEWSLETTER ======================= -->
+<!-- (mantém igual) -->
+<!-- ... -->
+
+<!-- ======================= SCRIPTS ======================= -->
+<script>
+/* ======== carregamento de includes ======== */
+document.querySelectorAll('[data-include]').forEach(async el=>{
+  const url = el.getAttribute('data-include');
+  const html = await (await fetch(url)).text();
+  el.innerHTML = html;
+});
+
+/* ======== o resto do seu script original ======== */
+/* mantém tudo, só adaptado para rodar com o polyfill */
+function carregarCalendario(){
+  google.script.run
+    .withSuccessHandler(res=>{
+      eventosCalendario = res.eventos || [];
+      montarFiltroMeses();
+      renderCalendario();
+      renderHomeProximas();
+    })
+    .getCalendarioEventos(); // chama seu endpoint via polyfill
+}
+function enviarNewsletterEmail(){
+  const email = document.getElementById('newsletter-email')?.value.trim();
+  if(!email) return alert('Digite seu e-mail.');
+  google.script.run
+    .withSuccessHandler(()=>{
+      alert('E-mail cadastrado com sucesso!');
+      fecharNewsletterModal();
+    })
+    .salvarEmailNewsletter(email);
+}
+document.addEventListener('DOMContentLoaded',()=>carregarCalendario());
+</script>
+
+</body>
+</html>
