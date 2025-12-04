@@ -424,7 +424,6 @@ tabs.forEach(btn=>{
   });
 });
 
-
 /* ===== sub-abas (Sobre) ===== */
 const sobreBtns   = document.querySelectorAll('.sobre-tab-btn');
 const sobrePanels = document.querySelectorAll('.sobre-panel');
@@ -458,39 +457,37 @@ function setLoadingCalendario(on=true){
 }
 
 function garanteCalendario(){
-  // busca se ainda não buscamos ou se a lista está vazia
   if (!calJaBuscou || !eventosCalendario.length) {
     carregarCalendario();
   } else {
-    // já temos dados: só renderiza (útil quando o usuário muda de mês)
     montarFiltroMeses();
     renderCalendario();
   }
 }
 
-function carregarCalendario(){
-  setLoadingCalendario(true);
+/* ===== nova função que busca dados da API ===== */
+async function carregarCalendario(){
+  try {
+    setLoadingCalendario(true);
+    const res = await fetch('/api/getCalendarioEventos');
+    const data = await res.json();
 
-  // IMPORTANTE: o polyfill de gsrun aceita withFailureHandler
-  google.script.run
-    .withSuccessHandler(res=>{
-      calJaBuscou = true;
-      eventosCalendario = (res && res.eventos) ? res.eventos : [];
-      montarFiltroMeses();
-      renderCalendario();
-      renderHomeProximas();
-      setLoadingCalendario(false);
-    })
-    .withFailureHandler(err=>{
-      setLoadingCalendario(false);
-      console.error('Erro ao carregar calendário:', err);
-      calLista.innerHTML = `<div class="muted">
-        Falha ao carregar a agenda. ${err?.message ? 'Detalhe: '+err.message : ''}
-      </div>`;
-    })
-    .getCalendarioEventos();
+    calJaBuscou = true;
+    eventosCalendario = data.eventos || [];
+    montarFiltroMeses();
+    renderCalendario();
+    renderHomeProximas();
+    setLoadingCalendario(false);
+
+  } catch (err) {
+    console.error('Erro ao carregar calendário:', err);
+    calLista.innerHTML = `<div class="muted">
+      Falha ao carregar a agenda. ${err?.message ? 'Detalhe: '+err.message : ''}
+    </div>`;
+  }
 }
 
+/* ===== renderização do calendário ===== */
 function montarFiltroMeses(){
   if(!calSelect) return;
   calSelect.innerHTML = '<option value="">Todos</option>';
@@ -560,43 +557,21 @@ function renderHomeProximas(){
   });
 }
 
-
-/* ===== próximas giras (sidebar) ===== */
-function renderHomeProximas(){
-  homeProxLista.innerHTML='';
-  if(!eventosCalendario.length){ homeProxLista.innerHTML='<p class="muted">Sem giras cadastradas.</p>'; return; }
-  const hojeISO = new Date().toISOString().slice(0,10);
-  const proximas = eventosCalendario.filter(ev=>ev.iso >= hojeISO).slice(0,4);
-  proximas.forEach(ev=>{
-    let nome = ev.linha || ev.atividade || '';
-    if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
-    const item = document.createElement('div');
-    item.className = 'next-item';
-    item.innerHTML = `<span class="next-date">${ev.dataStr}</span><span class="next-badge">Gira ${nome}</span>`;
-    homeProxLista.appendChild(item);
-  });
-}
-
 /* ===== newsletter ===== */
 function abrirNewsletterModal(){ document.getElementById('newsletter-modal')?.classList.remove('hidden'); }
 function fecharNewsletterModal(){ document.getElementById('newsletter-modal')?.classList.add('hidden'); localStorage.setItem('tufds_newsletter_shown','1'); }
 function enviarNewsletterEmail(){
-  const email = document.getElementById('newsletter-email')?.value.trim();
-  if(!email) return alert('Digite seu e-mail.');
-  google.script.run
-    .withSuccessHandler(()=>{ alert('E-mail cadastrado com sucesso!'); fecharNewsletterModal(); })
-    .salvarEmailNewsletter(email);
+  alert('Função de newsletter desativada neste ambiente.');
 }
 
 /* ===== boot ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // carrega já no início (preenche a sidebar)…
   garanteCalendario();
 
   const jaMostrou = localStorage.getItem('tufds_newsletter_shown');
   if(!jaMostrou) abrirNewsletterModal();
 });
-
 </script>
+
 </body>
 </html>
