@@ -36,12 +36,19 @@
     margin:0 auto;
     padding:24px 16px 40px;
     display:grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 320px; /* padrão: 2 colunas */
     gap:24px;
+  }
+  /* quando não tiver aside: vira 1 coluna */
+  .shell.single{
+    grid-template-columns: 1fr;
   }
   @media (max-width: 1024px){
     .shell{ grid-template-columns: 1fr }
   }
+
+  /* utilidade: esconder */
+  .hidden{ display:none !important; }
 
   /* ===== header ===== */
   .header{
@@ -183,7 +190,7 @@
 </head>
 <body>
 
-<div class="shell">
+<div class="shell" id="app-shell">
 
   <!-- HEADER -->
   <div class="header">
@@ -374,8 +381,8 @@
 
   </div>
 
-  <!-- COLUNA DIREITA -->
-  <aside class="col-right">
+  <!-- COLUNA DIREITA (só na Home) -->
+  <aside class="col-right" id="side-panel">
     <div class="card">
       <h2 class="side-title">Espaço do TUFDS</h2>
       <p class="muted">Terreiro de Umbanda Filhos do Sagrado – Manaus/AM</p>
@@ -408,20 +415,17 @@ async function loadPartial(el) {
     const html = await resp.text();
     el.innerHTML = html;
 
-    // executa <script> internos do partial na ordem
     const scripts = Array.from(el.querySelectorAll('script'));
     for (const old of scripts) {
       const s = document.createElement('script');
-      if (old.type) s.type = old.type;       // preserva type="module" se houver
+      if (old.type) s.type = old.type;
       if (old.src) s.src = old.src; else s.text = old.textContent || '';
       old.parentNode.replaceChild(s, old);
-      await Promise.resolve();               // microtask para manter ordem
+      await Promise.resolve();
     }
 
-    // avisa que o partial terminou de carregar
     el.dispatchEvent(new CustomEvent('partial:loaded', { bubbles:true, detail:{ url } }));
 
-    // se for o partial de Orixás, chama o inicializador (se já existir)
     if (url.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
       window.initOrixas(el);
     }
@@ -431,10 +435,8 @@ async function loadPartial(el) {
   }
 }
 
-// carrega todos os partials e executa scripts contidos
 document.querySelectorAll('[data-include]').forEach(loadPartial);
 
-/* ===== util: garante que um panel com data-include esteja carregado ===== */
 async function ensureIncludeLoaded(panelEl){
   if (!panelEl) return;
   const html = (panelEl.innerHTML || '').trim();
@@ -442,13 +444,20 @@ async function ensureIncludeLoaded(panelEl){
   await loadPartial(panelEl);
 }
 
+/* ===== controla visibilidade do aside (só na Home) ===== */
+const shell = document.getElementById('app-shell');
+const sidePanel = document.getElementById('side-panel');
+function setAsideVisible(on){
+  if (!shell || !sidePanel) return;
+  sidePanel.classList.toggle('hidden', !on);
+  shell.classList.toggle('single', !on);
+}
+
 /* ===== ativa a aba Sobre + sub-aba específica ===== */
 async function abrirSobre(key){
-  // ativa a aba principal "Sobre a Casa"
   const btnSobre = document.querySelector('.tab-btn[data-tab="sobre"]');
   if (btnSobre) btnSobre.click();
 
-  // troca as sub-abas
   const btns    = document.querySelectorAll('.sobre-tab-btn');
   const panels  = document.querySelectorAll('.sobre-panel');
   const alvoBtn = document.querySelector(`.sobre-tab-btn[data-sobre="${key}"]`);
@@ -476,25 +485,21 @@ tabs.forEach(btn=>{
     const tab = btn.dataset.tab;
     sections.forEach(sec=>sec.classList.toggle('active', sec.id===`sec-${tab}`));
 
+    // mostra aside só na Home
+    setAsideVisible(tab === 'home');
+
     if (tab === 'calendario') {
       garanteCalendario();
     }
-
     if (tab === 'sobre') {
       const ativo = document.querySelector('.sobre-panel.active') || document.getElementById('sobre-info');
       await ensureIncludeLoaded(ativo);
     }
-
-    // ===== Orixás: garante inicialização mesmo se o usuário abrir a aba depois
     if (tab === 'orixas') {
       const cont = document.querySelector('#sec-orixas [data-include="/partials/Orixas.html"]') || document.querySelector('#sec-orixas');
-
-      // se init já está disponível e o partial contém os botões, chama direto
       if (typeof window.initOrixas === 'function' && cont) {
         window.initOrixas(cont);
       }
-
-      // se o partial ainda não sinalizou carregamento, escuta o evento
       cont?.addEventListener('partial:loaded', (ev)=>{
         if (ev.detail?.url?.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
           window.initOrixas(cont);
@@ -519,8 +524,6 @@ sobreBtns.forEach(btn=>{
 document.getElementById('card-doacoes')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="doacoes"]').click());
 document.getElementById('card-biblioteca')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="biblioteca"]').click());
 document.getElementById('card-pedidos')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="pedidos"]').click());
-
-// novos atalhos para "Sobre a Casa" + sub-abas
 document.getElementById('card-historia')?.addEventListener('click', ()=> abrirSobre('historia'));
 document.getElementById('card-visitantes')?.addEventListener('click', ()=> abrirSobre('visitantes'));
 document.getElementById('card-primeiros')?.addEventListener('click', ()=> abrirSobre('primeiros'));
@@ -552,7 +555,6 @@ function garanteCalendario(){
   }
 }
 
-/* ===== nova função que busca dados da API ===== */
 async function carregarCalendario(){
   try {
     setLoadingCalendario(true);
@@ -574,7 +576,6 @@ async function carregarCalendario(){
   }
 }
 
-/* ===== renderização do calendário ===== */
 function montarFiltroMeses(){
   if(!calSelect) return;
   calSelect.innerHTML = '<option value="">Todos</option>';
@@ -623,7 +624,6 @@ function renderCalendario(){
 
 calSelect?.addEventListener('change', renderCalendario);
 
-/* ===== próximas giras (sidebar) ===== */
 function renderHomeProximas(){
   if(!homeProxLista) return;
   homeProxLista.innerHTML='';
@@ -653,6 +653,8 @@ function enviarNewsletterEmail(){
 
 /* ===== boot ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
+  // página abre na Home → aside visível
+  setAsideVisible(true);
   garanteCalendario();
 
   const jaMostrou = localStorage.getItem('tufds_newsletter_shown');
