@@ -175,6 +175,10 @@
   .btn-primario,.btn-secundario{ border:0; border-radius:999px; padding:8px 16px; font-size:14px; cursor:pointer }
   .btn-primario{ background:var(--accent); color:#fff }
   .btn-secundario{ background:#e5e7eb; color:#111827 }
+
+  /* ===== Sub-abas "Sobre a Casa" ===== */
+  .sobre-panel{ display:none; }
+  .sobre-panel.active{ display:block; }
 </style>
 </head>
 <body>
@@ -401,22 +405,14 @@ async function loadPartial(el) {
   const url = el.getAttribute('data-include');
   try {
     const html = await (await fetch(url)).text();
-
-    // injeta o HTML
     el.innerHTML = html;
 
     // executa <script> internos do partial
     const scripts = el.querySelectorAll('script');
     scripts.forEach(old => {
       const s = document.createElement('script');
-      // preserva type, src e texto
       if (old.type) s.type = old.type;
-      if (old.src) {
-        s.src = old.src;
-      } else {
-        s.text = old.textContent || '';
-      }
-      // garante execução após inserir
+      if (old.src) { s.src = old.src; } else { s.text = old.textContent || ''; }
       old.parentNode.replaceChild(s, old);
     });
   } catch (e) {
@@ -428,35 +424,67 @@ async function loadPartial(el) {
 // carrega todos os partials e executa scripts contidos
 document.querySelectorAll('[data-include]').forEach(loadPartial);
 
+/* ===== util: garante que um panel com data-include esteja carregado ===== */
+async function ensureIncludeLoaded(panelEl){
+  if (!panelEl) return;
+  const html = (panelEl.innerHTML || '').trim();
+  if (html && !/Conteúdo indisponível/i.test(html)) return;
+  await loadPartial(panelEl);
+}
+
+/* ===== ativa a aba Sobre + sub-aba específica ===== */
+async function abrirSobre(key){
+  // ativa a aba principal "Sobre a Casa"
+  const btnSobre = document.querySelector('.tab-btn[data-tab="sobre"]');
+  if (btnSobre) btnSobre.click();
+
+  // troca as sub-abas
+  const btns    = document.querySelectorAll('.sobre-tab-btn');
+  const panels  = document.querySelectorAll('.sobre-panel');
+  const alvoBtn = document.querySelector(`.sobre-tab-btn[data-sobre="${key}"]`);
+  const alvo    = document.getElementById(`sobre-${key}`);
+
+  btns.forEach(b => b.classList.remove('active'));
+  if (alvoBtn) alvoBtn.classList.add('active');
+
+  panels.forEach(p => p.classList.remove('active'));
+  if (alvo){
+    alvo.classList.add('active');
+    await ensureIncludeLoaded(alvo);
+  }
+}
 
 /* ===== abas ===== */
 const tabs = document.querySelectorAll('.tab-btn:not(.sobre-tab-btn)');
 const sections = document.querySelectorAll('.section');
 
 tabs.forEach(btn=>{
-  btn.addEventListener('click', ()=>{
+  btn.addEventListener('click', async ()=>{
     tabs.forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
 
     const tab = btn.dataset.tab;
     sections.forEach(sec=>sec.classList.toggle('active', sec.id===`sec-${tab}`));
 
-    // se abriu a aba Calendário, garante a carga
     if (tab === 'calendario') {
       garanteCalendario();
+    }
+    if (tab === 'sobre') {
+      // garante que o painel ativo esteja com conteúdo
+      const ativo = document.querySelector('.sobre-panel.active') || document.getElementById('sobre-info');
+      await ensureIncludeLoaded(ativo);
     }
   });
 });
 
 /* ===== sub-abas (Sobre) ===== */
 const sobreBtns   = document.querySelectorAll('.sobre-tab-btn');
-const sobrePanels = document.querySelectorAll('.sobre-panel');
 sobreBtns.forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    sobreBtns.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
+  if (btn._bound) return;
+  btn._bound = true;
+  btn.addEventListener('click', async ()=>{
     const key = btn.dataset.sobre;
-    sobrePanels.forEach(p=>p.classList.toggle('active', p.id===`sobre-${key}`));
+    await abrirSobre(key);
   });
 });
 
@@ -464,6 +492,14 @@ sobreBtns.forEach(btn=>{
 document.getElementById('card-doacoes')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="doacoes"]').click());
 document.getElementById('card-biblioteca')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="biblioteca"]').click());
 document.getElementById('card-pedidos')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="pedidos"]').click());
+
+// novos atalhos para "Sobre a Casa" + sub-abas
+document.getElementById('card-historia')?.addEventListener('click', ()=> abrirSobre('historia'));
+document.getElementById('card-visitantes')?.addEventListener('click', ()=> abrirSobre('visitantes'));
+document.getElementById('card-primeiros')?.addEventListener('click', ()=> abrirSobre('primeiros'));
+document.getElementById('card-hierarquia')?.addEventListener('click', ()=> abrirSobre('hierarquia'));
+document.getElementById('card-ritual')?.addEventListener('click', ()=> abrirSobre('ritual'));
+document.getElementById('card-orixas')?.addEventListener('click', ()=> document.querySelector('.tab-btn[data-tab="orixas"]').click());
 
 /* ===== calendário ===== */
 let eventosCalendario = [];
