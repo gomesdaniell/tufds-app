@@ -1,6 +1,13 @@
 {
-  "routes": [
-    { "src": "/", "dest": "/AppTUFDS.html" },
-    { "src": "/(.*)", "dest": "/AppTUFDS.html" }
-  ]
+  "rewrites": [
+    { "source": "/partials/:path*", "destination": "/partials/:path*" },
+    { "source": "/assets/:path*",   "destination": "/assets/:path*"   },
+    { "source": "/api/:path*",      "destination": "/api/:path*"      },
+    { "source": "/gsrun.js",        "destination": "/gsrun.js"        },
+
+    { "source": "/",       "destination": "/AppTUFDS.html" },
+    { "source": "/:path*", "destination": "/AppTUFDS.html" }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }
