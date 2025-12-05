@@ -226,8 +226,13 @@
       <img
         class="brand-logo"
         alt="Logo TUFDS"
-        src="https://drive.google.com/uc?export=view&id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3"
-        onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'T',style:'font-weight:800;font-size:22px;color:#0f766e;' }));"
+        referrerpolicy="no-referrer"
+        src="https://drive.google.com/thumbnail?id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3&sz=w256"
+        srcset="
+          https://drive.google.com/thumbnail?id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3&sz=w256 1x,
+          https://drive.google.com/thumbnail?id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3&sz=w512 2x
+        "
+        onerror="this.onerror=null; this.src='https://drive.google.com/uc?export=view&id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3';"
       />
     </div>
     <div>
@@ -555,17 +560,6 @@ sobreBtns.forEach(btn=>{
   });
 });
 
-/* ===== atalhos cards ===== */
-document.getElementById('card-doacoes')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="doacoes"]').click());
-document.getElementById('card-biblioteca')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="biblioteca"]').click());
-document.getElementById('card-pedidos')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="pedidos"]').click());
-document.getElementById('card-historia')?.addEventListener('click', ()=> abrirSobre('historia'));
-document.getElementById('card-visitantes')?.addEventListener('click', ()=> abrirSobre('visitantes'));
-document.getElementById('card-primeiros')?.addEventListener('click', ()=> abrirSobre('primeiros'));
-document.getElementById('card-hierarquia')?.addEventListener('click', ()=> abrirSobre('hierarquia'));
-document.getElementById('card-ritual')?.addEventListener('click', ()=> abrirSobre('ritual'));
-document.getElementById('card-orixas')?.addEventListener('click', ()=> document.querySelector('.tab-btn[data-tab="orixas"]').click());
-
 /* ===== calendário ===== */
 let eventosCalendario = [];
 let calJaBuscou = false;
@@ -669,7 +663,7 @@ function renderHomeProximas(){
   const hojeISO = new Date().toISOString().slice(0,10);
   const proximas = eventosCalendario.filter(ev=>ev.iso >= hojeISO).slice(0,4);
   proximas.forEach(ev=>{
-    let nome = ev.linha ou ev.atividade || '';
+    let nome = ev.linha || ev.atividade || '';
     if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
     const item = document.createElement('div');
     item.className = 'next-item';
