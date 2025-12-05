@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>App TUFDS – Consulentes</title>
 
+<!-- polyfill para manter google.script.run (não quebra se não existir) -->
 <script src="/gsrun.js"></script>
 
 <style>
@@ -15,7 +16,6 @@
     --muted:#6b7280;
     --border:#e5e7eb;
     --accent:#0f766e;
-    --accent-strong:#0b5f59;
     --accent-soft:#ecfdf5;
     --shadow:0 1px 3px rgba(0,0,0,.06);
     --radius:16px;
@@ -30,20 +30,27 @@
     color:var(--text);
   }
 
+  /* ===== shell / columns ===== */
   .shell{
     max-width:1200px;
     margin:0 auto;
     padding:24px 16px 40px;
     display:grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 320px; /* padrão: 2 colunas */
     gap:24px;
   }
-  .shell.single{ grid-template-columns: 1fr; }
-  @media (max-width: 1024px){ .shell{ grid-template-columns: 1fr } }
+  /* quando não tiver aside: vira 1 coluna */
+  .shell.single{
+    grid-template-columns: 1fr;
+  }
+  @media (max-width: 1024px){
+    .shell{ grid-template-columns: 1fr }
+  }
 
+  /* utilidade: esconder */
   .hidden{ display:none !important; }
 
-  /* header */
+  /* ===== header ===== */
   .header{
     grid-column:1 / -1;
     background:var(--card);
@@ -65,17 +72,34 @@
     flex:0 0 56px;
     overflow:hidden;
   }
-  .logo-circle img{ width:100%; height:100%; object-fit:cover; display:block }
-  .header h1{ margin:0;font-size:24px;line-height:1.15; }
+  .logo-circle img{
+    width:100%;height:100%;object-fit:cover;border-radius:50%;
+    display:block;
+  }
+  .header h1{
+    margin:0;font-size:24px;line-height:1.15;
+  }
   .sub{ color:var(--muted); margin-top:2px; font-size:14px }
 
-  /* tabs */
+  /* ===== tabs (menu principal com scroll horizontal) ===== */
   .tabs{
     grid-column:1 / -1;
-    display:flex; flex-wrap:wrap; gap:10px;
+    display:flex;
+    gap:12px;
     margin-top:12px; margin-bottom:10px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    white-space:nowrap;
+    padding:6px 2px;
+    /* máscara nas bordas p/ dar fade e parecer mais clean */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
   }
+  /* esconder scrollbar (desktop); no mobile iOS/Android fica ok */
+  .tabs::-webkit-scrollbar{ height:0 }
   .tab-btn{
+    display:inline-flex;
+    align-items:center;
     border:1px solid var(--border);
     background:#fff;
     color:var(--text);
@@ -84,15 +108,15 @@
     font-weight:600;
     font-size:15px;
     cursor:pointer;
-    user-select:none;
   }
+  .tab-btn:focus{ outline:2px solid #d1fae5; outline-offset:2px }
   .tab-btn.active{
     background:var(--accent);
     border-color:var(--accent);
     color:#ecfdf5;
   }
 
-  /* cards / sections */
+  /* ===== cards ===== */
   .card{
     background:var(--card);
     border:1px solid var(--border);
@@ -103,24 +127,24 @@
   h2{ margin:0 0 8px 0; font-size:22px }
   .muted{ color:var(--muted); font-size:14px }
 
-  .section{ display:none; }
-  .section.active{ display:block; }
-
+  /* ===== home grid ===== */
   .home-grid{
     margin-top:10px;
     display:grid;
     grid-template-columns: 1fr 1fr;
     gap:16px;
   }
-  @media (max-width: 720px){ .home-grid{ grid-template-columns: 1fr } }
+  @media (max-width: 720px){
+    .home-grid{ grid-template-columns: 1fr }
+  }
 
   .home-card{
     display:flex; align-items:center; gap:14px;
     background:#fff; border:1px solid var(--border);
     padding:18px; border-radius:14px; cursor:pointer;
-    transition:transform .08s ease, background .15s ease, box-shadow .15s ease;
+    transition:transform .08s ease, background .15s ease;
   }
-  .home-card:hover{ background:#f9fafb; transform:translateY(-1px); box-shadow:0 1px 3px rgba(0,0,0,.08) }
+  .home-card:hover{ background:#f9fafb; transform:translateY(-1px) }
   .home-card-icon{
     width:44px;height:44px;border-radius:12px;
     display:grid;place-items:center;font-size:26px;
@@ -128,22 +152,45 @@
   }
   .home-card strong{ font-size:18px; display:block; margin-bottom:4px }
 
-  /* calendário & sidebar */
-  .cal-toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-  .cal-select{ padding:8px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; font-size:14px; }
+  /* ===== sections ===== */
+  .section{ display:none; }
+  .section.active{ display:block; }
+  .col-right .card + .card{ margin-top:16px }
+
+  /* ===== calendario list ===== */
+  .cal-toolbar{
+    display:flex; align-items:center; gap:10px; margin-bottom:10px;
+  }
+  .cal-select{
+    padding:8px 12px; border:1px solid var(--border);
+    border-radius:10px; background:#fff; font-size:14px;
+  }
   .cal-list{ display:flex; flex-direction:column; gap:12px }
-  .cal-item{ display:flex; gap:12px; align-items:center; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; }
-  .cal-date{ min-width:78px; text-align:center; color:var(--accent); background:var(--accent-soft); border-radius:10px; padding:8px 6px; font-weight:700; }
+  .cal-item{
+    display:flex; gap:12px; align-items:center;
+    background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px;
+  }
+  .cal-date{
+    min-width:78px; text-align:center; color:var(--accent);
+    background:var(--accent-soft); border-radius:10px; padding:8px 6px; font-weight:700;
+  }
   .cal-date .dia{ font-size:22px }
   .cal-title{ font-size:16px; font-weight:700 }
 
+  /* ===== sidebar "Espaço do TUFDS" ===== */
   .side-title{ font-weight:800; font-size:26px; margin:0 0 8px 0 }
   .next-list{ display:flex; flex-direction:column; gap:10px; margin-top:6px }
-  .next-item{ background:#d1fae5; border-radius:14px; padding:10px 12px; display:flex; justify-content:space-between; gap:16px; align-items:center; }
+  .next-item{
+    background:#d1fae5; border-radius:14px; padding:10px 12px;
+    display:flex; justify-content:space-between; gap:16px; align-items:center;
+  }
   .next-date{ font-weight:600 }
-  .next-badge{ background:#10b981; color:#052e1b; font-weight:800; padding:6px 12px; border-radius:999px; white-space:nowrap; }
+  .next-badge{
+    background:#10b981; color:#052e1b; font-weight:800;
+    padding:6px 12px; border-radius:999px; white-space:nowrap;
+  }
 
-  /* newsletter */
+  /* ===== modal newsletter ===== */
   .newsletter-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50 }
   .newsletter-backdrop.hidden{ display:none }
   .newsletter-card{ background:#fff; width:min(420px,92%); padding:24px 20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.3) }
@@ -154,7 +201,7 @@
   .btn-primario{ background:var(--accent); color:#fff }
   .btn-secundario{ background:#e5e7eb; color:#111827 }
 
-  /* sub-abas sobre */
+  /* ===== Sub-abas "Sobre a Casa" ===== */
   .sobre-panel{ display:none; }
   .sobre-panel.active{ display:block; }
 </style>
@@ -165,17 +212,14 @@
 
   <!-- HEADER -->
   <div class="header">
-    <div class="logo-circle" id="logoCircle" aria-label="Logo TUFDS">
-      <!-- fallback (T) é substituído por <img> abaixo -->
-      T
-    </div>
+    <div class="logo-circle" id="tufds-logo">T</div>
     <div>
       <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
       <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
     </div>
   </div>
 
-  <!-- TABS -->
+  <!-- TABS (com scroll horizontal) -->
   <div class="tabs" id="tabs">
     <button class="tab-btn active" data-tab="home">Início</button>
     <button class="tab-btn" data-tab="calendario">Calendário</button>
@@ -197,50 +241,77 @@
     <div id="sec-home" class="section active">
       <h1 style="margin:6px 0 6px;font-size:44px;line-height:1.1">Novo na Umbanda? Comece por aqui.</h1>
 
-      <div class="home-grid" id="homeGrid">
-        <div class="home-card" data-goto="primeiros">
+      <div class="home-grid">
+        <div class="home-card" id="card-primeiros">
           <div class="home-card-icon">👣</div>
-          <div><strong>Primeiros passos</strong><span class="muted">Orientações básicas para sua primeira gira.</span></div>
+          <div>
+            <strong>Primeiros passos</strong>
+            <span class="muted">Orientações básicas para sua primeira gira.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-goto="visitantes">
+        <div class="home-card" id="card-visitantes">
           <div class="home-card-icon">✅</div>
-          <div><strong>Orientações para visitantes</strong><span class="muted">Como se portar e como pedir ajuda espiritual.</span></div>
+          <div>
+            <strong>Orientações para visitantes</strong>
+            <span class="muted">Como se portar e como pedir ajuda espiritual.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-tab="biblioteca">
+        <div class="home-card" id="card-biblioteca">
           <div class="home-card-icon">📚</div>
-          <div><strong>Biblioteca</strong><span class="muted">Acesse apostilas, PDFs e materiais da casa.</span></div>
+          <div>
+            <strong>Biblioteca</strong>
+            <span class="muted">Acesse apostilas, PDFs e materiais da casa.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-goto="historia">
+        <div class="home-card" id="card-historia">
           <div class="home-card-icon">📖</div>
-          <div><strong>História da Umbanda</strong><span class="muted">Origem, princípios e fundamentos.</span></div>
+          <div>
+            <strong>História da Umbanda</strong>
+            <span class="muted">Origem, princípios e fundamentos.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-goto="hierarquia">
+        <div class="home-card" id="card-hierarquia">
           <div class="home-card-icon">🧑‍🤝‍🧑</div>
-          <div><strong>Hierarquia da Casa</strong><span class="muted">Quem é quem no TUFDS.</span></div>
+          <div>
+            <strong>Hierarquia da Casa</strong>
+            <span class="muted">Quem é quem no TUFDS.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-tab="orixas">
+        <div class="home-card" id="card-orixas">
           <div class="home-card-icon">⚡</div>
-          <div><strong>Orixás na Umbanda</strong><span class="muted">Forças, linhas e fundamentos.</span></div>
+          <div>
+            <strong>Orixás na Umbanda</strong>
+            <span class="muted">Forças, linhas e fundamentos.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-goto="ritual">
+        <div class="home-card" id="card-ritual">
           <div class="home-card-icon">🕯</div>
-          <div><strong>Ritual da gira</strong><span class="muted">Passo a passo da gira.</span></div>
+          <div>
+            <strong>Ritual da gira</strong>
+            <span class="muted">Passo a passo da gira.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-tab="doacoes">
+        <div class="home-card" id="card-doacoes">
           <div class="home-card-icon">💚</div>
-          <div><strong>Doações para a Casa</strong><span class="muted">Veja o que o terreiro precisa e escolha como ajudar.</span></div>
+          <div>
+            <strong>Doações para a Casa</strong>
+            <span class="muted">Veja o que o terreiro precisa e escolha como ajudar.</span>
+          </div>
         </div>
 
-        <div class="home-card" data-tab="pedidos">
+        <div class="home-card" id="card-pedidos">
           <div class="home-card-icon">🌹</div>
-          <div><strong>Pedidos de Rosas & Itens</strong><span class="muted">Reserve rosas, velas e outros itens para a gira.</span></div>
+          <div>
+            <strong>Pedidos de Rosas & Itens</strong>
+            <span class="muted">Reserve rosas, velas e outros itens para a gira.</span>
+          </div>
         </div>
       </div>
     </div>
@@ -354,23 +425,30 @@
 </div>
 
 <script>
-/* ========= util ========= */
-function qs(sel,root=document){ return root.querySelector(sel); }
-function qsa(sel,root=document){ return Array.from(root.querySelectorAll(sel)); }
-
-/* ========= logo do Drive com fallback ========= */
-(function mountLogo(){
-  const el = document.getElementById('logoCircle');
+/* ===== util: carregar logo do Google Drive (converte para dataURL p/ evitar CORS) ===== */
+const DRIVE_VIEW_URL = "https://drive.google.com/uc?export=view&id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3";
+(function loadDriveLogo(){
+  const el = document.getElementById('tufds-logo');
   if(!el) return;
-  const url = 'https://drive.google.com/thumbnail?id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3';
   const img = new Image();
-  img.alt = 'Logo TUFDS';
-  img.onload = ()=>{ el.textContent=''; el.appendChild(img); };
-  img.onerror = ()=>{ /* mantém o “T” */ };
-  img.src = url;
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try{
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth; c.height=img.naturalHeight;
+      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
+      const data=c.toDataURL('image/png');
+      el.innerHTML = `<img alt="Logo TUFDS" src="${data}">`;
+    }catch(e){
+      // fallback: exibe imagem direta se canvas bloquear
+      el.innerHTML = `<img alt="Logo TUFDS" src="${DRIVE_VIEW_URL}">`;
+    }
+  };
+  img.onerror = ()=>{/* mantém o T fallback */};
+  img.src = DRIVE_VIEW_URL;
 })();
 
-/* ========= includes (partials) ========= */
+/* ===== includes (partials) ===== */
 async function loadPartial(el) {
   const url = el.getAttribute('data-include');
   try {
@@ -378,8 +456,7 @@ async function loadPartial(el) {
     const html = await resp.text();
     el.innerHTML = html;
 
-    // executa <script> internos (ordem preservada)
-    const scripts = qsa('script', el);
+    const scripts = Array.from(el.querySelectorAll('script'));
     for (const old of scripts) {
       const s = document.createElement('script');
       if (old.type) s.type = old.type;
@@ -390,7 +467,6 @@ async function loadPartial(el) {
 
     el.dispatchEvent(new CustomEvent('partial:loaded', { bubbles:true, detail:{ url } }));
 
-    // se for Orixás e existir init
     if (url.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
       window.initOrixas(el);
     }
@@ -399,7 +475,7 @@ async function loadPartial(el) {
     el.innerHTML = '<p class="muted">Conteúdo indisponível.</p>';
   }
 }
-qsa('[data-include]').forEach(loadPartial);
+document.querySelectorAll('[data-include]').forEach(loadPartial);
 
 async function ensureIncludeLoaded(panelEl){
   if (!panelEl) return;
@@ -408,7 +484,7 @@ async function ensureIncludeLoaded(panelEl){
   await loadPartial(panelEl);
 }
 
-/* ========= layout: aside só na Home ========= */
+/* ===== controla visibilidade do aside (só na Home) ===== */
 const shell = document.getElementById('app-shell');
 const sidePanel = document.getElementById('side-panel');
 function setAsideVisible(on){
@@ -417,79 +493,82 @@ function setAsideVisible(on){
   shell.classList.toggle('single', !on);
 }
 
-/* ========= Tabs (delegação) ========= */
-const tabsRoot = document.getElementById('tabs');
-const sections = qsa('.section');
+/* ===== ativa a aba Sobre + sub-aba específica ===== */
+async function abrirSobre(key){
+  const btnSobre = document.querySelector('.tab-btn[data-tab="sobre"]');
+  if (btnSobre) btnSobre.click();
 
-function activateTab(tab){
-  // estado visual
-  qsa('.tab-btn', tabsRoot).forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  // conteúdo
-  sections.forEach(sec=>sec.classList.toggle('active', sec.id===`sec-${tab}`));
-  // aside
-  setAsideVisible(tab === 'home');
+  const btns    = document.querySelectorAll('.sobre-tab-btn');
+  const panels  = document.querySelectorAll('.sobre-panel');
+  const alvoBtn = document.querySelector(`.sobre-tab-btn[data-sobre="${key}"]`);
+  const alvo    = document.getElementById(`sobre-${key}`);
 
-  // cargas condicionais
-  if (tab === 'calendario') garanteCalendario();
+  btns.forEach(b => b.classList.remove('active'));
+  if (alvoBtn) alvoBtn.classList.add('active');
 
-  if (tab === 'sobre') {
-    const ativo = qs('.sobre-panel.active') || document.getElementById('sobre-info');
-    ensureIncludeLoaded(ativo);
+  panels.forEach(p => p.classList.remove('active'));
+  if (alvo){
+    alvo.classList.add('active');
+    await ensureIncludeLoaded(alvo);
   }
+}
 
-  if (tab === 'orixas') {
-    const cont = qs('#sec-orixas [data-include="/partials/Orixas.html"]') || qs('#sec-orixas');
-    if (typeof window.initOrixas === 'function' && cont) window.initOrixas(cont);
-    cont?.addEventListener('partial:loaded', (ev)=>{
-      if (ev.detail?.url?.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
+/* ===== abas ===== */
+const tabs = document.querySelectorAll('.tab-btn:not(.sobre-tab-btn)');
+const sections = document.querySelectorAll('.section');
+
+tabs.forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    tabs.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const tab = btn.dataset.tab;
+    sections.forEach(sec=>sec.classList.toggle('active', sec.id===`sec-${tab}`));
+
+    // mostra aside só na Home
+    setAsideVisible(tab === 'home');
+
+    if (tab === 'calendario') {
+      garanteCalendario();
+    }
+    if (tab === 'sobre') {
+      const ativo = document.querySelector('.sobre-panel.active') || document.getElementById('sobre-info');
+      await ensureIncludeLoaded(ativo);
+    }
+    if (tab === 'orixas') {
+      const cont = document.querySelector('#sec-orixas [data-include="/partials/Orixas.html"]') || document.querySelector('#sec-orixas');
+      if (typeof window.initOrixas === 'function' && cont) {
         window.initOrixas(cont);
       }
-    }, { once:true });
-  }
-}
+      cont?.addEventListener('partial:loaded', (ev)=>{
+        if (ev.detail?.url?.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
+          window.initOrixas(cont);
+        }
+      }, { once:true });
+    }
+  });
+});
 
-tabsRoot.addEventListener('click', (ev)=>{
-  const btn = ev.target.closest('.tab-btn');
+/* ===== delegação para sub-abas (Sobre) – robusto a recarregamentos ===== */
+document.addEventListener('click', async (ev)=>{
+  const btn = ev.target.closest('.sobre-tab-btn');
   if(!btn) return;
-  const tab = btn.dataset.tab;
-  if(!tab) return;
-  activateTab(tab);
+  const key = btn.dataset.sobre;
+  await abrirSobre(key);
 });
 
-/* ========= Sub-abas “Sobre” ========= */
-function abrirSobre(key){
-  activateTab('sobre');
-  const btns = qsa('.sobre-tab-btn');
-  const panels = qsa('.sobre-panel');
-  const alvoBtn = qs(`.sobre-tab-btn[data-sobre="${key}"]`);
-  const alvo = document.getElementById(`sobre-${key}`);
+/* ===== atalhos cards ===== */
+document.getElementById('card-doacoes')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="doacoes"]').click());
+document.getElementById('card-biblioteca')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="biblioteca"]').click());
+document.getElementById('card-pedidos')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="pedidos"]').click());
+document.getElementById('card-historia')?.addEventListener('click', ()=> abrirSobre('historia'));
+document.getElementById('card-visitantes')?.addEventListener('click', ()=> abrirSobre('visitantes'));
+document.getElementById('card-primeiros')?.addEventListener('click', ()=> abrirSobre('primeiros'));
+document.getElementById('card-hierarquia')?.addEventListener('click', ()=> abrirSobre('hierarquia'));
+document.getElementById('card-ritual')?.addEventListener('click', ()=> abrirSobre('ritual'));
+document.getElementById('card-orixas')?.addEventListener('click', ()=> document.querySelector('.tab-btn[data-tab="orixas"]').click());
 
-  btns.forEach(b=>b.classList.remove('active'));
-  alvoBtn?.classList.add('active');
-  panels.forEach(p=>p.classList.remove('active'));
-  if (alvo){ alvo.classList.add('active'); ensureIncludeLoaded(alvo); }
-}
-
-/* ========= Atalhos da Home (delegação) ========= */
-const homeGrid = document.getElementById('homeGrid');
-homeGrid.addEventListener('click', (ev)=>{
-  const card = ev.target.closest('.home-card');
-  if(!card) return;
-
-  const gotoTab = card.dataset.tab;
-  const gotoSobre = card.dataset.goto;
-
-  if (gotoTab){
-    activateTab(gotoTab);
-    return;
-  }
-  if (gotoSobre){
-    abrirSobre(gotoSobre);
-    return;
-  }
-});
-
-/* ========= Calendário / Sidebar ========= */
+/* ===== calendário ===== */
 let eventosCalendario = [];
 let calJaBuscou = false;
 
@@ -499,45 +578,9 @@ const homeProxLista = document.getElementById('homeProximasLista');
 
 function setLoadingCalendario(on=true){
   if(!calLista) return;
-  calLista.innerHTML = on ? '<div class="muted">Carregando calendário...</div>' : '';
-}
-
-function parseDateToISO(any){
-  if(!any) return null;
-  if (any instanceof Date && !isNaN(any)) return any.toISOString().slice(0,10);
-  if (typeof any === 'string'){
-    // já ISO yyyy-mm-dd?
-    if (/^\d{4}-\d{2}-\d{2}$/.test(any)) return any;
-    // dd/mm/aaaa
-    const m = any.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (m){
-      const [_,d,mm,yyyy] = m;
-      return `${yyyy}-${mm}-${d}`;
-    }
-  }
-  return null;
-}
-function isoToBr(iso){
-  if(!iso) return '';
-  const [y,m,d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-}
-function isoToMesAnoKey(iso){
-  if(!iso) return '';
-  const [y,m] = iso.split('-');
-  return `${y}-${m}`;
-}
-
-function normalizaEventos(lista){
-  return (lista||[]).map(ev=>{
-    const iso = ev.iso || ev.isoDate || parseDateToISO(ev.dataStr) || parseDateToISO(ev.dataISO);
-    const dataStr = ev.dataStr || isoToBr(iso);
-    const mesAnoKey = ev.mesAnoKey || isoToMesAnoKey(iso);
-    return {
-      ...ev,
-      iso, dataStr, mesAnoKey
-    };
-  }).filter(e=>e.iso).sort((a,b)=> a.iso.localeCompare(b.iso));
+  calLista.innerHTML = on
+    ? '<div class="muted">Carregando calendário...</div>'
+    : '';
 }
 
 function garanteCalendario(){
@@ -546,17 +589,18 @@ function garanteCalendario(){
   } else {
     montarFiltroMeses();
     renderCalendario();
+    renderHomeProximas();
   }
 }
 
 async function carregarCalendario(){
   try {
     setLoadingCalendario(true);
-    const res = await fetch('/api/getCalendarioEventos', { cache:'no-store' });
+    const res = await fetch('/api/getCalendarioEventos');
     const data = await res.json();
 
     calJaBuscou = true;
-    eventosCalendario = normalizaEventos(data?.eventos || data || []);
+    eventosCalendario = data.eventos || [];
     montarFiltroMeses();
     renderCalendario();
     renderHomeProximas();
@@ -564,8 +608,9 @@ async function carregarCalendario(){
 
   } catch (err) {
     console.error('Erro ao carregar calendário:', err);
-    if (calLista) calLista.innerHTML = `<div class="muted">Falha ao carregar a agenda.</div>`;
-    if (homeProxLista) homeProxLista.innerHTML = `<p class="muted">Não foi possível carregar as próximas giras.</p>`;
+    calLista && (calLista.innerHTML = `<div class="muted">
+      Falha ao carregar a agenda. ${err?.message ? 'Detalhe: '+err.message : ''}
+    </div>`);
   }
 }
 
@@ -574,7 +619,7 @@ function montarFiltroMeses(){
   calSelect.innerHTML = '<option value="">Todos</option>';
   const nomes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const mapa={};
-  eventosCalendario.forEach(ev=>{
+  (eventosCalendario||[]).forEach(ev=>{
     if(ev.mesAnoKey && !mapa[ev.mesAnoKey]){
       const [ano,mes]=ev.mesAnoKey.split('-');
       mapa[ev.mesAnoKey] = `${nomes[parseInt(mes,10)-1]}/${ano}`;
@@ -599,8 +644,8 @@ function renderCalendario(){
 
   lista.forEach(ev=>{
     let nome = ev.linha || ev.atividade || '';
-    if (typeof nome === 'string' && nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
-    const [ano,mes,dia] = ev.iso.split('-');
+    if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
+    const [dia,mes,ano] = (ev.dataStr||'').split('/');
     const row=document.createElement('div');
     row.className='cal-item';
     row.innerHTML = `
@@ -625,28 +670,25 @@ function renderHomeProximas(){
   }
   const hojeISO = new Date().toISOString().slice(0,10);
   const proximas = eventosCalendario.filter(ev=>ev.iso >= hojeISO).slice(0,4);
-  if (!proximas.length){
-    homeProxLista.innerHTML='<p class="muted">Nenhuma gira futura cadastrada.</p>';
-    return;
-  }
   proximas.forEach(ev=>{
     let nome = ev.linha || ev.atividade || '';
-    if (typeof nome === 'string' && nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
+    if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
     const item = document.createElement('div');
     item.className = 'next-item';
-    item.innerHTML = `<span class="next-date">${ev.dataStr || isoToBr(ev.iso)}</span>
+    item.innerHTML = `<span class="next-date">${ev.dataStr}</span>
                       <span class="next-badge">Gira ${nome}</span>`;
     homeProxLista.appendChild(item);
   });
 }
 
-/* ========= newsletter ========= */
+/* ===== newsletter ===== */
 function abrirNewsletterModal(){ document.getElementById('newsletter-modal')?.classList.remove('hidden'); }
 function fecharNewsletterModal(){ document.getElementById('newsletter-modal')?.classList.add('hidden'); localStorage.setItem('tufds_newsletter_shown','1'); }
 function enviarNewsletterEmail(){ alert('Função de newsletter desativada neste ambiente.'); }
 
-/* ========= boot ========= */
+/* ===== boot ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
+  // página abre na Home → aside visível
   setAsideVisible(true);
   garanteCalendario();
 
