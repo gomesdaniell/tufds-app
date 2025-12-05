@@ -134,29 +134,24 @@
   }
 
   function renderDoaCatalogo(lista){
-    const box = document.getElementById('doa-catalogo');
-    if(!lista || !lista.length){
-      box.innerHTML = '<div class="muted">Nenhum item encontrado.</div>';
-      return;
-    }
-    let html = '';
-    lista.forEach(it=>{
-      html += `
-        <div class="doa-card">
-          <div class="doa-ico">🎁</div>
-          <div class="doa-main">
-            <div class="doa-title">${escapeHtml(it.descricao)}</div>
-            <div class="doa-meta">
-              ${it.categoria ? escapeHtml(it.categoria)+' · ' : ''}
-              ${it.unidade ? 'Unid: '+escapeHtml(it.unidade)+' · ' : ''}
-              Valor sugerido: R$ ${formatMoney(Number(it.valor)||0)}
-            </div>
-          </div>
-        </div>
-      `;
-    });
-    box.innerHTML = html;
+  const box = document.getElementById('doa-catalogo');
+  if(!lista || !lista.length){
+    box.innerHTML = '<div class="muted">Nenhum item encontrado.</div>';
+    return;
   }
+  let html = '';
+  lista.forEach(it=>{
+    html += `
+      <div class="doa-card">
+        <div class="doa-ico">🎁</div>
+        <div class="doa-main">
+          <div class="doa-title">${escapeHtml(it.descricao)}</div>
+        </div>
+      </div>
+    `;
+  });
+  box.innerHTML = html;
+}
 
   /* utils */
   function escapeHtml(s){
