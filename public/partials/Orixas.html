@@ -47,20 +47,19 @@
     background:#f9fafb;
     cursor:pointer;
     text-align:center;
-    transition:background 0.2s, transform 0.1s, box-shadow 0.1s;
+    transition:background .2s, transform .1s, box-shadow .1s;
     font-weight:600;
   }
   .orixa-btn:hover{
     background:#eef2ff;
     transform:translateY(-1px);
-    box-shadow:0 1px 3px rgba(15,23,42,0.1);
+    box-shadow:0 1px 3px rgba(15,23,42,.1);
   }
   .orixa-btn.active{
     background:#0f766e;
     color:#ecfdf5;
     border-color:#0f766e;
   }
-
   .orixa-conteudo-card{
     margin-top:20px;
     padding:18px 20px;
@@ -77,21 +76,20 @@
 
 <script>
 /**
- * Inicializador chamado pela página-mãe DEPOIS que o partial é injetado
- * e também quando a aba "Orixás" é aberta.
- * rootEl: o container onde este partial foi inserido (o <div data-include="...">).
+ * Versão para Vercel (arquivos estáticos em /public/partials).
+ * A página-mãe chamará window.initOrixas(rootEl) após injetar este partial
+ * e sempre que a aba "Orixás" for aberta.
  */
 window.initOrixas = function initOrixas(rootEl){
-  // evita ligar eventos mais de uma vez
   const root = rootEl && rootEl.querySelector ? rootEl : document;
-  if (root.__orixas_bound__) return;
+  if (root.__orixas_bound__) return;            // evita bind duplicado
   root.__orixas_bound__ = true;
 
   const btns = root.querySelectorAll('.orixa-btn');
   const container = root.querySelector('#orixaConteudo');
+  if (!btns.length || !container) return;
 
-  if (!btns.length || !container) return; // nada a fazer
-
+  // Mapeia "chave" -> NomeDoArquivo.html (exatamente como está em /public/partials)
   const mapaArquivos = {
     oxala:   'Oxala',
     ogum:    'Ogum',
@@ -105,54 +103,39 @@ window.initOrixas = function initOrixas(rootEl){
   };
 
   function setLoading(on=true){
-    if (!container) return;
     container.innerHTML = on
       ? '<p class="muted">Carregando…</p>'
       : '';
   }
 
   async function carregarOrixa(chave){
+    const base = '/partials';                    // servido a partir de /public/partials
     const arquivo = mapaArquivos[chave];
-    if (!arquivo || !container) return;
+    if (!arquivo) return;
 
     setLoading(true);
+    // cache-busting leve quando precisar (troque v conforme release)
+    const url = `${base}/${encodeURIComponent(arquivo)}.html?v=1`;
 
-    // 1) Preferência: Apps Script
-    if (window.google && google.script && google.script.run && typeof google.script.run.getOrixaHtml === 'function') {
-      google.script.run
-        .withSuccessHandler(function(html){
-          container.innerHTML = html || '<p class="muted">Sem conteúdo para este Orixá.</p>';
-        })
-        .withFailureHandler(function(err){
-          container.innerHTML = '<p class="muted">Falha ao carregar o conteúdo.</p>';
-          console.error('getOrixaHtml falhou:', err);
-        })
-        .getOrixaHtml(arquivo);
-      return;
-    }
-
-    // 2) Fallback: endpoint REST do seu back (/api/orixa?name=)
     try{
-      const resp = await fetch(`/api/orixa?name=${encodeURIComponent(arquivo)}`);
-      if (!resp.ok) throw new Error('HTTP '+resp.status);
+      const resp = await fetch(url, { cache: 'no-store' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const html = await resp.text();
       container.innerHTML = html || '<p class="muted">Sem conteúdo para este Orixá.</p>';
     }catch(e){
-      console.error('Fallback falhou:', e);
+      console.error('Falha ao carregar partial de Orixá:', e);
       container.innerHTML = '<p class="muted">Conteúdo indisponível no momento.</p>';
     }
   }
 
-  // liga os cliques (escopo no root para não misturar com outras abas)
+  // liga cliques (escopo limitado ao root)
   btns.forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const chave = btn.dataset.orixa;
 
-      // visual
       btns.forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
 
-      // carrega
       carregarOrixa(chave);
     });
   });
