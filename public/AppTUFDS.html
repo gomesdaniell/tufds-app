@@ -64,8 +64,7 @@
   }
   .logo-circle{
     width:56px;height:56px;border-radius:50%;
-    /* Fundo mais neutro para logos brancas/transp. não “sumirem” */
-    background:#e5e7eb;
+    background:var(--accent-soft);
     border:1px solid #a7f3d0;
     color:var(--accent);
     display:grid;place-items:center;
@@ -74,13 +73,8 @@
     overflow:hidden;
   }
   .logo-circle img{
-    width:100%;height:100%;
-    /* Mostra a arte inteira, mesmo se for quadrada/retângulo */
-    object-fit:contain;
-    /* Pequena folga para não colar nas bordas do círculo */
-    padding:6px;
+    width:100%;height:100%;object-fit:cover;border-radius:50%;
     display:block;
-    border-radius:50%;
   }
   .header h1{
     margin:0;font-size:24px;line-height:1.15;
@@ -100,23 +94,9 @@
     /* máscara nas bordas p/ dar fade e parecer mais clean */
     -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
             mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
-
-    /* Firefox */
-    scrollbar-width:thin;
-    scrollbar-color:#cbd5e1 #f3f4f6;
   }
-  /* WebKit/Chrome/Edge – reativa e estiliza a barra */
-  .tabs::-webkit-scrollbar{ height:8px }
-  .tabs::-webkit-scrollbar-track{
-    background:#f3f4f6;
-    border-radius:999px;
-  }
-  .tabs::-webkit-scrollbar-thumb{
-    background:#cbd5e1;
-    border-radius:999px;
-    border:2px solid #f3f4f6;
-  }
-
+  /* esconder scrollbar (desktop); no mobile iOS/Android fica ok */
+  .tabs::-webkit-scrollbar{ height:0 }
   .tab-btn{
     display:inline-flex;
     align-items:center;
@@ -232,48 +212,7 @@
 
   <!-- HEADER -->
   <div class="header">
-<div class="logo-circle" id="tufds-logo">
-  <!-- LOGO direta via Drive; se falhar, mostra "T" -->
-  <img
-    src="https://drive.google.com/uc?export=view&id=10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e"
-    alt="Logo TUFDS"
-    referrerpolicy="no-referrer"
-    onerror="this.remove();this.parentNode.textContent='T';"
-  />
-</div>
-
-document.addEventListener("DOMContentLoaded", () => {
-  const DRIVE_FILE_ID = "10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e";
-  const el = document.getElementById("tufds-logo");
-  if (!el) return;
-
-  const img = new Image();
-  img.alt = "Logo TUFDS";
-  img.referrerPolicy = "no-referrer";
-  img.style.width = "100%";
-  img.style.height = "100%";
-  img.style.objectFit = "contain";
-  img.style.borderRadius = "50%";
-  img.style.padding = "6px";
-  img.style.background = "#e5e7eb";
-
-  img.onload = () => {
-    el.innerHTML = "";
-    el.appendChild(img);
-  };
-
-  img.onerror = () => {
-    el.innerHTML = `<img alt="Logo TUFDS" 
-      src="https://drive.google.com/uc?export=view&id=${DRIVE_FILE_ID}" 
-      style="width:100%;height:100%;object-fit:contain;border-radius:50%;padding:6px;background:#e5e7eb;">`;
-  };
-
-  img.src = `https://drive.google.com/thumbnail?id=${DRIVE_FILE_ID}&sz=w256`;
-});
-
-
-
-    
+    <div class="logo-circle" id="tufds-logo">T</div>
     <div>
       <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
       <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
@@ -486,6 +425,29 @@ document.addEventListener("DOMContentLoaded", () => {
 </div>
 
 <script>
+/* ===== util: carregar logo do Google Drive (converte para dataURL p/ evitar CORS) ===== */
+const DRIVE_VIEW_URL = "https://drive.google.com/uc?export=view&id=10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e"; // <-- NOVO ID
+(function loadDriveLogo(){
+  const el = document.getElementById('tufds-logo');
+  if(!el) return;
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try{
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth; c.height=img.naturalHeight;
+      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
+      const data=c.toDataURL('image/png');
+      el.innerHTML = `<img alt="Logo TUFDS" src="${data}">`;
+    }catch(e){
+      // fallback: exibe imagem direta se canvas bloquear
+      el.innerHTML = `<img alt="Logo TUFDS" src="${DRIVE_VIEW_URL}">`;
+    }
+  };
+  img.onerror = ()=>{/* mantém o T fallback */};
+  img.src = DRIVE_VIEW_URL;
+})();
+
 /* ===== includes (partials) ===== */
 async function loadPartial(el) {
   const url = el.getAttribute('data-include');
@@ -546,7 +508,7 @@ async function abrirSobre(key){
 
   panels.forEach(p => p.classList.remove('active'));
   if (alvo){
-    alvo.classList.add('active');
+    alvo.classList.add(active);
     await ensureIncludeLoaded(alvo);
   }
 }
