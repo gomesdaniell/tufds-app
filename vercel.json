@@ -11,9 +11,3 @@
   "cleanUrls": true,
   "trailingSlash": false
 }
-fix: ajusta roteamento da Vercel para domínio tufds.com.br
-
-- substitui "routes" por "rewrites" (compatível com roteador atual da Vercel)
-- preserva exceções para /partials, /api, /assets e /gsrun.js
-- corrige erro 404 da raiz ao acessar tufds.com.br
-- mantém comportamento SPA (Single Page App) para AppTUFDS.html
