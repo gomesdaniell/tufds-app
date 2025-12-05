@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>TUFDS</title>
+    <meta http-equiv="refresh" content="0; url=/AppTUFDS.html">
+    <script>location.replace('/AppTUFDS.html');</script>
+  </head>
+  <body></body>
+</html>
