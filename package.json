@@ -1,8 +1,22 @@
 {
-  "name": "tufds-app",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "googleapis": "^139.0.0"
-  }
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "https://www.tufds.com.br",
+      "permanent": true
+    }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
 }
