@@ -425,29 +425,27 @@
 </div>
 
 <script>
-/* ===== util: carregar logo do Google Drive (converte para dataURL p/ evitar CORS) ===== */
-const DRIVE_VIEW_URL = "https://drive.google.com/uc?export=view&id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3";
+/* ===== util: carregar logo do Google Drive (versão estável) ===== */
+const DRIVE_FILE_ID = "1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3";
 (function loadDriveLogo(){
   const el = document.getElementById('tufds-logo');
   if(!el) return;
   const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    try{
-      const c=document.createElement('canvas');
-      c.width=img.naturalWidth; c.height=img.naturalHeight;
-      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
-      const data=c.toDataURL('image/png');
-      el.innerHTML = `<img alt="Logo TUFDS" src="${data}">`;
-    }catch(e){
-      // fallback: exibe imagem direta se canvas bloquear
-      el.innerHTML = `<img alt="Logo TUFDS" src="${DRIVE_VIEW_URL}">`;
-    }
+  img.alt = "Logo TUFDS";
+  img.src = `https://drive.google.com/thumbnail?id=${DRIVE_FILE_ID}&sz=w256`;
+  img.style.width = "100%";
+  img.style.height = "100%";
+  img.style.objectFit = "cover";
+  img.style.borderRadius = "50%";
+  img.onload = ()=>{ el.innerHTML = ""; el.appendChild(img); };
+  img.onerror = ()=>{
+    // fallback: usa o viewer direto
+    el.innerHTML = `<img alt="Logo TUFDS" src="https://drive.google.com/uc?export=view&id=${DRIVE_FILE_ID}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
   };
-  img.onerror = ()=>{/* mantém o T fallback */};
-  img.src = DRIVE_VIEW_URL;
 })();
+</script>
 
+<script>
 /* ===== includes (partials) ===== */
 async function loadPartial(el) {
   const url = el.getAttribute('data-include');
@@ -504,7 +502,7 @@ async function abrirSobre(key){
   const alvo    = document.getElementById(`sobre-${key}`);
 
   btns.forEach(b => b.classList.remove('active'));
-  if (alvoBtn) alvoBtn.classList.add('active');
+  if (alvoBtn) alvoBtn.classList.add('active'));
 
   panels.forEach(p => p.classList.remove('active'));
   if (alvo){
@@ -643,7 +641,7 @@ function renderCalendario(){
   }
 
   lista.forEach(ev=>{
-    let nome = ev.linha || ev.atividade || '';
+    let nome = ev.linha ou ev.atividade || '';
     if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
     const [dia,mes,ano] = (ev.dataStr||'').split('/');
     const row=document.createElement('div');
