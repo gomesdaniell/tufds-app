@@ -1,165 +1,327 @@
 <section>
-  <p class="muted">
-    Escolha abaixo itens para doar. Os valores são sugestões para apoio às atividades da Casa.
+  <h2 style="margin:0 0 8px">Doações</h2>
+  <p class="muted" style="margin:0 0 12px">
+    Escolha itens para doar. Os valores são sugestões para apoio às atividades da Casa.
   </p>
 
+  <!-- Filtros -->
   <div class="doa-toolbar">
     <input id="doa-busca" type="text" placeholder="Buscar item..." />
-    <select id="doa-tipo">
-      <option value="all">Todas as categorias</option>
+    <select id="doa-categ">
+      <option value="">Todas as categorias</option>
     </select>
-    <button id="doa-filtrar">Buscar</button>
-    <button id="doa-reset">Limpar</button>
+    <button id="doa-buscar">Buscar</button>
+    <button id="doa-limpar">Limpar</button>
   </div>
 
+  <!-- Grid catálogo -->
   <div id="doa-catalogo" class="doa-grid">
     <div class="muted">Carregando catálogo...</div>
+  </div>
+
+  <!-- Carrinho / compromisso -->
+  <div class="doa-cart">
+    <h3 style="margin:0 0 8px">Itens selecionados</h3>
+
+    <div class="doa-ident">
+      <div class="id-field">
+        <label for="doa-nome">Nome*</label>
+        <input id="doa-nome" type="text" placeholder="Seu nome" />
+      </div>
+      <div class="id-field">
+        <label for="doa-contato">Contato (WhatsApp ou e-mail)*</label>
+        <input id="doa-contato" type="text" placeholder="(xx) xxxxx-xxxx / email@exemplo.com" />
+      </div>
+    </div>
+
+    <div id="doa-cart-vazio" class="muted">Nenhum item selecionado.</div>
+    <div id="doa-cart-list" class="doa-cart-list"></div>
+
+    <div class="doa-cart-actions">
+      <div id="doa-cart-total" class="muted">Total de itens: 0</div>
+      <button id="doa-enviar" class="btn-primario" disabled>Registrar compromisso</button>
+    </div>
+
+    <div id="doa-msg" class="doa-msg"></div>
   </div>
 </section>
 
 <style>
-  .doa-toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 14px }
+  .doa-toolbar{
+    display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 14px;
+  }
   .doa-toolbar input, .doa-toolbar select, .doa-toolbar button{
-    padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff
+    padding:8px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;
   }
-  .doa-toolbar button{ cursor:pointer }
-
-  .doa-grid{ display:grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap:12px }
+  .doa-toolbar button{ cursor:pointer; }
+  .doa-grid{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap:12px;
+  }
   .doa-card{
-    background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:12px; display:flex; gap:10px
+    background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px;
+    display:flex; align-items:center; gap:12px; transition:background .2s ease;
   }
-  .doa-ico{ font-size:24px }
-  .doa-main{ flex:1 }
-  .doa-title{ font-weight:700 }
-  .doa-meta{ color:#6b7280; font-size:12px; margin-top:2px }
+  .doa-card:hover{ background:#f9fafb; }
+  .doa-ico{ font-size:22px; min-width:26px; line-height:1; }
+  .doa-main{ flex:1 1 auto; display:flex; flex-direction:column; gap:6px; }
+  .doa-title{ font-weight:700; font-size:1rem; color:#111827; }
+  .doa-actions{ display:flex; gap:8px; align-items:center; }
+  .doa-qtd{
+    width:72px; padding:6px 8px; border:1px solid #d1d5db; border-radius:8px;
+  }
+  .btn-add{
+    padding:6px 12px; border:none; border-radius:999px; background:#0f766e; color:#fff; cursor:pointer;
+  }
+  /* Identificação */
+  .doa-ident{
+    display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin:8px 0 8px;
+  }
+  .id-field{ display:flex; flex-direction:column; gap:6px; }
+  .id-field input{ padding:8px 10px; border:1px solid #d1d5db; border-radius:8px; background:#fff; }
+  @media (max-width: 720px){ .doa-ident{ grid-template-columns:1fr; } }
+
+  /* Carrinho */
+  .doa-cart{
+    margin-top:16px; padding:12px; border:1px solid #e5e7eb; border-radius:12px; background:#f9fafb;
+  }
+  .doa-cart-list .row{
+    display:grid; grid-template-columns:1fr 80px 90px 80px; gap:10px; align-items:center;
+    padding:8px 0; border-bottom:1px dashed #e5e7eb;
+  }
+  .doa-cart-list .row:last-child{ border-bottom:none; }
+  .btn-remove{
+    border:none; border-radius:8px; padding:4px 8px; background:#fee2e2; color:#991b1b; cursor:pointer;
+  }
+  .doa-cart-actions{
+    margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .btn-primario{ border:0; border-radius:999px; padding:8px 16px; background:#0f766e; color:#fff; cursor:pointer; }
+  .doa-msg{ margin-top:8px; font-size:.95rem; }
+  .doa-msg.ok{ color:#15803d; }
+  .doa-msg.err{ color:#b91c1c; }
 </style>
 
 <script>
-  let DOA_BRUTO = [];   // catálogo bruto vindo da API
-  let DOA_FILTRO = { texto:'', cat:'all' };
+  // ===== Estado
+  let DOA_CATALOGO = [];
+  let DOA_CART = [];
 
+  // ===== Boot
   (function initDoacoes(){
     bindDoaEvents();
     carregarDoaCatalogo();
   })();
 
   function bindDoaEvents(){
-    const busca   = document.getElementById('doa-busca');
-    const tipoSel = document.getElementById('doa-tipo');
-    const btnFil  = document.getElementById('doa-filtrar');
-    const btnRes  = document.getElementById('doa-reset');
+    const b = document.getElementById('doa-buscar');
+    const l = document.getElementById('doa-limpar');
+    const s = document.getElementById('doa-busca');
+    const enviar = document.getElementById('doa-enviar');
+    const nome = document.getElementById('doa-nome');
+    const contato = document.getElementById('doa-contato');
 
-    if (btnFil && !btnFil._b){
-      btnFil.addEventListener('click', ()=>{
-        DOA_FILTRO.texto = (busca.value||'').trim();
-        DOA_FILTRO.cat   = (tipoSel.value||'all');
-        renderDoaCatalogo(filtraDoa(DOA_FILTRO.texto, DOA_FILTRO.cat));
-      });
-      btnFil._b = true;
+    if (b && !b._bound){
+      b.addEventListener('click', ()=> renderDoaCatalogo(filtraDoaCatalogo()));
+      b._bound = true;
     }
-    if (btnRes && !btnRes._b){
-      btnRes.addEventListener('click', ()=>{
-        busca.value=''; tipoSel.value='all';
-        DOA_FILTRO = { texto:'', cat:'all' };
-        renderDoaCatalogo(DOA_BRUTO);
+    if (l && !l._bound){
+      l.addEventListener('click', ()=>{
+        document.getElementById('doa-busca').value = '';
+        document.getElementById('doa-categ').value = '';
+        renderDoaCatalogo(DOA_CATALOGO);
       });
-      btnRes._b = true;
+      l._bound = true;
     }
-    if (busca && !busca._b){
-      busca.addEventListener('keydown', e=>{
-        if(e.key==='Enter'){
-          DOA_FILTRO.texto = (busca.value||'').trim();
-          renderDoaCatalogo(filtraDoa(DOA_FILTRO.texto, tipoSel.value||'all'));
-        }
-      });
-      busca._b = true;
+    if (s && !s._bound){
+      s.addEventListener('keydown', e=>{ if(e.key==='Enter') renderDoaCatalogo(filtraDoaCatalogo()); });
+      s._bound = true;
     }
+    if (enviar && !enviar._bound){
+      enviar.addEventListener('click', registrarCompromisso);
+      enviar._bound = true;
+    }
+    const toggleBtn = ()=> validarForm() ? enviar.removeAttribute('disabled') : enviar.setAttribute('disabled','');
+    nome.addEventListener('input', toggleBtn);
+    contato.addEventListener('input', toggleBtn);
   }
 
+  // ===== API helpers
+  async function apiGetDoaCatalogo(){
+    const res = await fetch('/api/getDoacoesCatalogo'); // já existente
+    if (!res.ok) throw new Error('Falha ao buscar catálogo de doações');
+    return res.json();
+  }
+  async function apiSalvarCompromisso(body){
+    const res = await fetch('/api/salvarDoacaoCompromisso', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    return res.json();
+  }
+
+  // ===== Catálogo
   async function carregarDoaCatalogo(){
     const box = document.getElementById('doa-catalogo');
     box.innerHTML = '<div class="muted">Carregando catálogo...</div>';
     try{
-      const res = await fetch('/api/getCatalogoDoacoes', { cache:'no-store' });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const data = await res.json();
-
-      const arr = Array.isArray(data) ? data
-                : Array.isArray(data?.catalogo) ? data.catalogo
-                : Array.isArray(data?.data?.catalogo) ? data.data.catalogo
-                : [];
-
-      DOA_BRUTO = arr.map(x=>({
-        idItem   : String(x.idItem ?? x.id ?? '').trim() || String(Math.random()).slice(2),
-        categoria: String(x.categoria ?? '').trim(),
-        descricao: String(x.descricao ?? x.item ?? '').trim(),
-        unidade  : String(x.unidade ?? x.unid ?? '').trim(),
-        valor    : Number(x.preco ?? x.preço ?? x.valor ?? 0) || 0
-      }))
-      .filter(x=> x.descricao)
-      .sort((a,b)=>{
-        const c = (a.categoria||'').localeCompare(b.categoria||'', 'pt-BR');
-        return c !== 0 ? c : a.descricao.localeCompare(b.descricao,'pt-BR');
-      });
-
-      montarFiltroCategorias(DOA_BRUTO);
-      renderDoaCatalogo(DOA_BRUTO);
+      const data = await apiGetDoaCatalogo();
+      DOA_CATALOGO = Array.isArray(data) ? data : (data.catalogo || []);
+      popularCategorias(DOA_CATALOGO);
+      renderDoaCatalogo(DOA_CATALOGO);
     }catch(err){
       console.error(err);
       box.innerHTML = '<div class="muted">Erro ao carregar catálogo.</div>';
     }
   }
 
-  function montarFiltroCategorias(lista){
-    const sel = document.getElementById('doa-tipo');
-    const set = new Set();
-    lista.forEach(x=>{ if(x.categoria) set.add(x.categoria); });
-    // limpa e remonta
-    sel.innerHTML = '<option value="all">Todas as categorias</option>';
-    [...set].sort((a,b)=>a.localeCompare(b,'pt-BR')).forEach(cat=>{
-      const o = document.createElement('option');
-      o.value = cat; o.textContent = cat;
-      sel.appendChild(o);
-    });
+  function popularCategorias(arr){
+    const catSel = document.getElementById('doa-categ');
+    const cats = Array.from(new Set(arr.map(x=>String(x.categoria||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    catSel.innerHTML = '<option value="">Todas as categorias</option>' + cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
   }
 
-  function filtraDoa(texto, categoria){
-    const t = String(texto||'').toLowerCase().trim();
-    const c = String(categoria||'all');
-    return DOA_BRUTO.filter(it=>{
-      const passTxt = !t || (it.descricao||'').toLowerCase().includes(t) || (it.categoria||'').toLowerCase().includes(t);
-      const passCat = c==='all' || it.categoria===c;
-      return passTxt && passCat;
+  function filtraDoaCatalogo(){
+    const term = String(document.getElementById('doa-busca')?.value||'').toLowerCase().trim();
+    const cat  = String(document.getElementById('doa-categ')?.value||'').toLowerCase().trim();
+    return DOA_CATALOGO.filter(x=>{
+      const okTerm = !term || (String(x.descricao||'').toLowerCase().includes(term));
+      const okCat  = !cat  || (String(x.categoria||'').toLowerCase()===cat);
+      return okTerm && okCat;
     });
   }
 
   function renderDoaCatalogo(lista){
-  const box = document.getElementById('doa-catalogo');
-  if(!lista || !lista.length){
-    box.innerHTML = '<div class="muted">Nenhum item encontrado.</div>';
-    return;
-  }
-  let html = '';
-  lista.forEach(it=>{
-    html += `
-      <div class="doa-card">
-        <div class="doa-ico">🎁</div>
-        <div class="doa-main">
-          <div class="doa-title">${escapeHtml(it.descricao)}</div>
+    const box = document.getElementById('doa-catalogo');
+    if(!lista || !lista.length){
+      box.innerHTML = '<div class="muted">Nenhum item encontrado.</div>';
+      return;
+    }
+    let html = '';
+    lista.forEach(it=>{
+      html += `
+        <div class="doa-card">
+          <div class="doa-ico">🎁</div>
+          <div class="doa-main">
+            <div class="doa-title">${escapeHtml(it.descricao||'')}</div>
+          </div>
+          <div class="doa-actions">
+            <input type="number" class="doa-qtd" id="dq_${it.idItem}" min="1" step="1" value="1" />
+            <button class="btn-add" onclick="doaAdd('${escapeAttr(it.idItem)}','${escapeAttr(it.descricao||'')}')">Adicionar</button>
+          </div>
         </div>
+      `;
+    });
+    box.innerHTML = html;
+  }
+
+  // ===== Carrinho
+  function doaAdd(id, desc){
+    const input = document.getElementById('dq_'+id);
+    let qtd = parseInt(input && input.value ? input.value : '1', 10);
+    if (isNaN(qtd) || qtd<=0) qtd=1;
+
+    const ex = DOA_CART.find(x=>x.idItem===id);
+    if (ex) ex.qtd += qtd;
+    else DOA_CART.push({ idItem:id, descricao:desc, qtd });
+
+    renderDoaCart();
+  }
+
+  function doaRemove(idx){
+    DOA_CART.splice(idx,1);
+    renderDoaCart();
+  }
+
+  function renderDoaCart(){
+    const empty = document.getElementById('doa-cart-vazio');
+    const list  = document.getElementById('doa-cart-list');
+    const total = document.getElementById('doa-cart-total');
+
+    if (!DOA_CART.length){
+      empty.style.display = 'block';
+      list.innerHTML = '';
+      total.textContent = 'Total de itens: 0';
+      validarForm();
+      return;
+    }
+
+    empty.style.display = 'none';
+    let count = 0;
+    let html = `
+      <div class="row" style="font-weight:700">
+        <div>Item</div><div>Qtd</div><div></div><div></div>
       </div>
     `;
-  });
-  box.innerHTML = html;
-}
+    DOA_CART.forEach((it, idx)=>{
+      count += it.qtd;
+      html += `
+        <div class="row">
+          <div>${escapeHtml(it.descricao)}</div>
+          <div>${it.qtd}</div>
+          <div></div>
+          <div><button class="btn-remove" onclick="doaRemove(${idx})">Remover</button></div>
+        </div>
+      `;
+    });
+    list.innerHTML = html;
+    total.textContent = 'Total de itens: ' + count;
+    validarForm();
+  }
 
-  /* utils */
+  function validarForm(){
+    const nome = document.getElementById('doa-nome').value.trim();
+    const contato = document.getElementById('doa-contato').value.trim();
+    const btn = document.getElementById('doa-enviar');
+    const ok = !!(nome && contato && DOA_CART.length);
+    btn.disabled = !ok;
+    return ok;
+  }
+
+  // ===== Envio
+  async function registrarCompromisso(){
+    const msg = document.getElementById('doa-msg');
+    msg.className = 'doa-msg'; msg.textContent = '';
+
+    if (!validarForm()){
+      msg.classList.add('err'); msg.textContent = 'Informe nome, contato e adicione itens.'; return;
+    }
+
+    const body = {
+      nome: document.getElementById('doa-nome').value.trim(),
+      contato: document.getElementById('doa-contato').value.trim(),
+      itens: DOA_CART.map(x=>({ idItem:x.idItem, descricao:x.descricao, qtd:x.qtd }))
+    };
+
+    try{
+      msg.textContent = 'Enviando...';
+      const resp = await apiSalvarCompromisso(body);
+      if (resp && resp.ok){
+        msg.classList.add('ok');
+        msg.textContent = `Compromisso registrado! Itens: ${resp.rows||body.itens.length}.`;
+        DOA_CART = [];
+        renderDoaCart();
+        document.getElementById('doa-nome').value='';
+        document.getElementById('doa-contato').value='';
+      }else{
+        msg.classList.add('err');
+        msg.textContent = (resp && resp.error) || 'Erro ao registrar compromisso.';
+      }
+    }catch(e){
+      console.error(e);
+      msg.classList.add('err');
+      msg.textContent = 'Erro ao registrar compromisso.';
+    }
+  }
+
+  // ===== Utils
   function escapeHtml(s){
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    return String(s||'')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
-  function formatMoney(v){
-    const n = Number(v||0);
-    return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+  function escapeAttr(s){
+    return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 </script>
