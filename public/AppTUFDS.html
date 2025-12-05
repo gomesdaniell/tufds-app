@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>App TUFDS – Consulentes</title>
 
-<!-- polyfill para manter google.script.run (não quebra se não existir) -->
+<!-- polyfill para manter google.script.run -->
 <script src="/gsrun.js"></script>
 
 <style>
@@ -25,34 +25,28 @@
   html,body{ height:100% }
   body{
     margin:0;
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue","Noto Sans",Arial,"Apple Color Emoji","Segoe UI Emoji";
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
     background:var(--bg);
     color:var(--text);
   }
 
-  /* ===== shell / columns ===== */
+  /* ===== layout ===== */
   .shell{
     max-width:1200px;
     margin:0 auto;
     padding:24px 16px 40px;
     display:grid;
-    grid-template-columns: 1fr 320px; /* padrão: 2 colunas */
+    grid-template-columns: 1fr 320px;
     gap:24px;
   }
-  /* quando não tiver aside: vira 1 coluna */
-  .shell.single{
-    grid-template-columns: 1fr;
-  }
-  @media (max-width: 1024px){
-    .shell{ grid-template-columns: 1fr }
-  }
+  .shell.single{ grid-template-columns:1fr; }
+  @media (max-width:1024px){ .shell{ grid-template-columns:1fr } }
 
-  /* utilidade: esconder */
-  .hidden{ display:none !important; }
+  .hidden{ display:none!important; }
 
   /* ===== header ===== */
   .header{
-    grid-column:1 / -1;
+    grid-column:1/-1;
     background:var(--card);
     border:1px solid var(--border);
     border-radius:var(--radius);
@@ -64,42 +58,38 @@
   }
   .logo-circle{
     width:56px;height:56px;border-radius:50%;
-    background:var(--accent-soft);
+    background:#e5e7eb;
     border:1px solid #a7f3d0;
-    color:var(--accent);
     display:grid;place-items:center;
     font-weight:800;font-size:22px;
-    flex:0 0 56px;
     overflow:hidden;
   }
   .logo-circle img{
-    width:100%;height:100%;object-fit:cover;border-radius:50%;
-    display:block;
+    width:100%;height:100%;
+    object-fit:contain;
+    border-radius:50%;
+    padding:6px;
+    background:#e5e7eb;
   }
-  .header h1{
-    margin:0;font-size:24px;line-height:1.15;
-  }
-  .sub{ color:var(--muted); margin-top:2px; font-size:14px }
+  .header h1{margin:0;font-size:24px;line-height:1.15;}
+  .sub{color:var(--muted);margin-top:2px;font-size:14px;}
 
-  /* ===== tabs (menu principal com scroll horizontal) ===== */
+  /* ===== tabs ===== */
   .tabs{
-    grid-column:1 / -1;
-    display:flex;
-    gap:12px;
-    margin-top:12px; margin-bottom:10px;
-    overflow-x:auto;
+    grid-column:1/-1;
+    display:flex;gap:12px;
+    margin-top:12px;margin-bottom:10px;
+    overflow-x:auto;white-space:nowrap;
     -webkit-overflow-scrolling:touch;
-    white-space:nowrap;
     padding:6px 2px;
-    /* máscara nas bordas p/ dar fade e parecer mais clean */
-    -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
-            mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+    scrollbar-width:thin;
+    scrollbar-color:#cbd5e1 #f3f4f6;
   }
-  /* esconder scrollbar (desktop); no mobile iOS/Android fica ok */
-  .tabs::-webkit-scrollbar{ height:0 }
+  .tabs::-webkit-scrollbar{height:8px;}
+  .tabs::-webkit-scrollbar-track{background:#f3f4f6;border-radius:999px;}
+  .tabs::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;border:2px solid #f3f4f6;}
+
   .tab-btn{
-    display:inline-flex;
-    align-items:center;
     border:1px solid var(--border);
     background:#fff;
     color:var(--text);
@@ -109,12 +99,7 @@
     font-size:15px;
     cursor:pointer;
   }
-  .tab-btn:focus{ outline:2px solid #d1fae5; outline-offset:2px }
-  .tab-btn.active{
-    background:var(--accent);
-    border-color:var(--accent);
-    color:#ecfdf5;
-  }
+  .tab-btn.active{background:var(--accent);color:#ecfdf5;border-color:var(--accent);}
 
   /* ===== cards ===== */
   .card{
@@ -124,98 +109,57 @@
     box-shadow:var(--shadow);
     padding:20px;
   }
-  h2{ margin:0 0 8px 0; font-size:22px }
-  .muted{ color:var(--muted); font-size:14px }
+  h2{margin:0 0 8px;font-size:22px;}
+  .muted{color:var(--muted);font-size:14px;}
 
   /* ===== home grid ===== */
   .home-grid{
     margin-top:10px;
     display:grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns:1fr 1fr;
     gap:16px;
   }
-  @media (max-width: 720px){
-    .home-grid{ grid-template-columns: 1fr }
-  }
-
+  @media(max-width:720px){.home-grid{grid-template-columns:1fr;}}
   .home-card{
-    display:flex; align-items:center; gap:14px;
-    background:#fff; border:1px solid var(--border);
-    padding:18px; border-radius:14px; cursor:pointer;
-    transition:transform .08s ease, background .15s ease;
+    display:flex;align-items:center;gap:14px;
+    background:#fff;border:1px solid var(--border);
+    padding:18px;border-radius:14px;cursor:pointer;
+    transition:transform .08s,background .15s;
   }
-  .home-card:hover{ background:#f9fafb; transform:translateY(-1px) }
+  .home-card:hover{background:#f9fafb;transform:translateY(-1px);}
   .home-card-icon{
     width:44px;height:44px;border-radius:12px;
     display:grid;place-items:center;font-size:26px;
     background:#eef2ff;
   }
-  .home-card strong{ font-size:18px; display:block; margin-bottom:4px }
+  .home-card strong{font-size:18px;display:block;margin-bottom:4px;}
 
-  /* ===== sections ===== */
-  .section{ display:none; }
-  .section.active{ display:block; }
-  .col-right .card + .card{ margin-top:16px }
-
-  /* ===== calendario list ===== */
-  .cal-toolbar{
-    display:flex; align-items:center; gap:10px; margin-bottom:10px;
-  }
-  .cal-select{
-    padding:8px 12px; border:1px solid var(--border);
-    border-radius:10px; background:#fff; font-size:14px;
-  }
-  .cal-list{ display:flex; flex-direction:column; gap:12px }
-  .cal-item{
-    display:flex; gap:12px; align-items:center;
-    background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px;
-  }
-  .cal-date{
-    min-width:78px; text-align:center; color:var(--accent);
-    background:var(--accent-soft); border-radius:10px; padding:8px 6px; font-weight:700;
-  }
-  .cal-date .dia{ font-size:22px }
-  .cal-title{ font-size:16px; font-weight:700 }
-
-  /* ===== sidebar "Espaço do TUFDS" ===== */
-  .side-title{ font-weight:800; font-size:26px; margin:0 0 8px 0 }
-  .next-list{ display:flex; flex-direction:column; gap:10px; margin-top:6px }
+  /* ===== sidebar ===== */
+  .side-title{font-weight:800;font-size:26px;margin:0 0 8px;}
+  .next-list{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
   .next-item{
-    background:#d1fae5; border-radius:14px; padding:10px 12px;
-    display:flex; justify-content:space-between; gap:16px; align-items:center;
+    background:#d1fae5;border-radius:14px;padding:10px 12px;
+    display:flex;justify-content:space-between;align-items:center;gap:16px;
   }
-  .next-date{ font-weight:600 }
-  .next-badge{
-    background:#10b981; color:#052e1b; font-weight:800;
-    padding:6px 12px; border-radius:999px; white-space:nowrap;
-  }
+  .next-badge{background:#10b981;color:#052e1b;font-weight:800;padding:6px 12px;border-radius:999px;}
 
-  /* ===== modal newsletter ===== */
-  .newsletter-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:50 }
-  .newsletter-backdrop.hidden{ display:none }
-  .newsletter-card{ background:#fff; width:min(420px,92%); padding:24px 20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.3) }
-  .newsletter-card h2{ font-size:20px }
-  #newsletter-email{ width:100%; padding:10px 12px; border:1px solid #ccc; border-radius:8px; margin-top:8px }
-  .newsletter-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:12px }
-  .btn-primario,.btn-secundario{ border:0; border-radius:999px; padding:8px 16px; font-size:14px; cursor:pointer }
-  .btn-primario{ background:var(--accent); color:#fff }
-  .btn-secundario{ background:#e5e7eb; color:#111827 }
-
-  /* ===== Sub-abas "Sobre a Casa" ===== */
-  .sobre-panel{ display:none; }
-  .sobre-panel.active{ display:block; }
+  /* ===== sobre ===== */
+  .sobre-panel{display:none;}
+  .sobre-panel.active{display:block;}
 </style>
 </head>
 <body>
 
 <div class="shell" id="app-shell">
-
   <!-- HEADER -->
   <div class="header">
     <div class="logo-circle" id="tufds-logo">
-      <!-- Logo direta do Drive -->
-      <img alt="Logo TUFDS"
-           src="https://drive.google.com/uc?export=view&id=10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e">
+      <img
+        src="https://drive.google.com/uc?export=view&id=10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e"
+        alt="Logo TUFDS"
+        referrerpolicy="no-referrer"
+        onerror="this.remove();this.parentNode.textContent='T';"
+      />
     </div>
     <div>
       <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
@@ -223,7 +167,7 @@
     </div>
   </div>
 
-  <!-- TABS (com scroll horizontal) -->
+  <!-- MENU -->
   <div class="tabs" id="tabs">
     <button class="tab-btn active" data-tab="home">Início</button>
     <button class="tab-btn" data-tab="calendario">Calendário</button>
@@ -234,442 +178,60 @@
     <button class="tab-btn" data-tab="biblioteca">Biblioteca</button>
     <button class="tab-btn" data-tab="sobre">Sobre a Casa</button>
     <button class="tab-btn" data-tab="orixas">Orixás</button>
-    <button class="tab-btn" data-tab="faq">Perguntas Frequentes</button>
-    <button class="tab-btn" data-tab="contato">Contato</button>
+    <button class="tab-btn" data-tab="faq">FAQ</button>
   </div>
 
-  <!-- COLUNA ESQUERDA -->
+  <!-- CONTEÚDOS -->
   <div>
-
-    <!-- HOME -->
     <div id="sec-home" class="section active">
-      <h1 style="margin:6px 0 6px;font-size:44px;line-height:1.1">Novo na Umbanda? Comece por aqui.</h1>
-
+      <h1 style="font-size:38px;margin-bottom:10px;">Novo na Umbanda? Comece por aqui.</h1>
       <div class="home-grid">
-        <div class="home-card" id="card-primeiros">
-          <div class="home-card-icon">👣</div>
-          <div>
-            <strong>Primeiros passos</strong>
-            <span class="muted">Orientações básicas para sua primeira gira.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-visitantes">
-          <div class="home-card-icon">✅</div>
-          <div>
-            <strong>Orientações para visitantes</strong>
-            <span class="muted">Como se portar e como pedir ajuda espiritual.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-biblioteca">
-          <div class="home-card-icon">📚</div>
-          <div>
-            <strong>Biblioteca</strong>
-            <span class="muted">Acesse apostilas, PDFs e materiais da casa.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-historia">
-          <div class="home-card-icon">📖</div>
-          <div>
-            <strong>História da Umbanda</strong>
-            <span class="muted">Origem, princípios e fundamentos.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-hierarquia">
-          <div class="home-card-icon">🧑‍🤝‍🧑</div>
-          <div>
-            <strong>Hierarquia da Casa</strong>
-            <span class="muted">Quem é quem no TUFDS.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-orixas">
-          <div class="home-card-icon">⚡</div>
-          <div>
-            <strong>Orixás na Umbanda</strong>
-            <span class="muted">Forças, linhas e fundamentos.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-ritual">
-          <div class="home-card-icon">🕯</div>
-          <div>
-            <strong>Ritual da gira</strong>
-            <span class="muted">Passo a passo da gira.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-doacoes">
-          <div class="home-card-icon">💚</div>
-          <div>
-            <strong>Doações para a Casa</strong>
-            <span class="muted">Veja o que o terreiro precisa e escolha como ajudar.</span>
-          </div>
-        </div>
-
-        <div class="home-card" id="card-pedidos">
-          <div class="home-card-icon">🌹</div>
-          <div>
-            <strong>Pedidos de Rosas & Itens</strong>
-            <span class="muted">Reserve rosas, velas e outros itens para a gira.</span>
-          </div>
-        </div>
+        <div class="home-card" id="card-primeiros"><div class="home-card-icon">👣</div><div><strong>Primeiros passos</strong><span class="muted">Para sua primeira gira.</span></div></div>
+        <div class="home-card" id="card-visitantes"><div class="home-card-icon">✅</div><div><strong>Orientações</strong><span class="muted">Como se portar no terreiro.</span></div></div>
+        <div class="home-card" id="card-orixas"><div class="home-card-icon">⚡</div><div><strong>Orixás</strong><span class="muted">Forças e fundamentos.</span></div></div>
       </div>
     </div>
 
-    <!-- PEDIDOS -->
-    <div id="sec-pedidos" class="section">
-      <div class="card">
-        <h2>Pedidos para Giras</h2>
-        <div data-include="/partials/Pedidos.html"></div>
-      </div>
-    </div>
-
-    <!-- CALENDÁRIO -->
-    <div id="sec-calendario" class="section">
-      <div class="card">
-        <h2>Calendário de Giras</h2>
-        <p class="muted">Datas puxadas automaticamente da aba Calendário.</p>
-
-        <div class="cal-toolbar">
-          <label>Filtrar por mês:</label>
-          <select id="calMesSelect" class="cal-select"><option value="">Todos</option></select>
-        </div>
-        <div id="calLista" class="cal-list"></div>
-      </div>
-    </div>
-
-    <!-- DOAÇÕES -->
-    <div id="sec-doacoes" class="section">
-      <div class="card">
-        <h2>Doações</h2>
-        <div data-include="/partials/Doacoes.html"></div>
-      </div>
-    </div>
-
-    <!-- BIBLIOTECA -->
-    <div id="sec-biblioteca" class="section">
-      <div class="card">
-        <h2>Biblioteca</h2>
-        <div data-include="/partials/Biblioteca.html"></div>
-      </div>
-    </div>
-
-    <!-- SOBRE -->
-    <div id="sec-sobre" class="section">
-      <div class="card" style="margin-bottom:12px">
-        <div class="sobre-tabs">
-          <button class="tab-btn sobre-tab-btn active" data-sobre="info">Sobre o TUFDS</button>
-          <button class="tab-btn sobre-tab-btn" data-sobre="historia">História da Umbanda</button>
-          <button class="tab-btn sobre-tab-btn" data-sobre="visitantes">Orientações para Visitantes</button>
-          <button class="tab-btn sobre-tab-btn" data-sobre="primeiros">Primeiros Passos</button>
-          <button class="tab-btn sobre-tab-btn" data-sobre="hierarquia">Hierarquia da Casa</button>
-          <button class="tab-btn sobre-tab-btn" data-sobre="ritual">Ritual da Gira</button>
-        </div>
-      </div>
-
-      <div id="sobre-info" class="sobre-panel card active" data-include="/partials/SobreTUFDS.html"></div>
-      <div id="sobre-historia" class="sobre-panel card" data-include="/partials/HistUmbanda.html"></div>
-      <div id="sobre-visitantes" class="sobre-panel card" data-include="/partials/Visitantes.html"></div>
-      <div id="sobre-primeiros" class="sobre-panel card" data-include="/partials/PrimeirosPassos.html"></div>
-      <div id="sobre-hierarquia" class="sobre-panel card" data-include="/partials/Hierarquia.html"></div>
-      <div id="sobre-ritual" class="sobre-panel card" data-include="/partials/RitualTUFDS.html"></div>
-    </div>
-
-    <!-- ORIXÁS -->
-    <div id="sec-orixas" class="section">
-      <div class="card" data-include="/partials/Orixas.html"></div>
-    </div>
-
-    <!-- PONTOS / PLAYLISTS / FAQ / CONTATO -->
-    <div id="sec-pontos" class="section">
-      <div class="card" data-include="/partials/Pontos.html"></div>
-    </div>
-
-    <div id="sec-playlists" class="section">
-      <div class="card"><h2>Playlists</h2></div>
-    </div>
-
-    <div id="sec-faq" class="section">
-      <div class="card"><h2>Perguntas Frequentes</h2></div>
-    </div>
-
-    <div id="sec-contato" class="section">
-      <div class="card" data-include="/partials/Contato.html"></div>
-    </div>
-
+    <div id="sec-sobre" class="section"><div class="card" data-include="/partials/SobreTUFDS.html"></div></div>
+    <div id="sec-orixas" class="section"><div class="card" data-include="/partials/Orixas.html"></div></div>
   </div>
 
-  <!-- COLUNA DIREITA (só na Home) -->
+  <!-- LATERAL -->
   <aside class="col-right" id="side-panel">
     <div class="card">
       <h2 class="side-title">Espaço do TUFDS</h2>
       <p class="muted">Terreiro de Umbanda Filhos do Sagrado – Manaus/AM</p>
-      <h3 style="margin:10px 0 8px">Próximas giras</h3>
-      <div id="homeProximasLista" class="next-list"></div>
+      <div id="homeProximasLista" class="next-list">
+        <div class="next-item"><span>07/12</span><span class="next-badge">Gira de Iansã</span></div>
+        <div class="next-item"><span>14/12</span><span class="next-badge">Gira de Xangô</span></div>
+      </div>
     </div>
   </aside>
-
-</div>
-
-<!-- MODAL NEWSLETTER -->
-<div id="newsletter-modal" class="newsletter-backdrop hidden">
-  <div class="newsletter-card">
-    <h2>Quer receber nossos avisos?</h2>
-    <p>Deixe seu e-mail para receber comunicados do terreiro.</p>
-    <input type="email" id="newsletter-email" placeholder="seuemail@exemplo.com" />
-    <div class="newsletter-actions">
-      <button type="button" onclick="fecharNewsletterModal()" class="btn-secundario">Agora não</button>
-      <button type="button" onclick="enviarNewsletterEmail()" class="btn-primario">Quero receber</button>
-    </div>
-  </div>
 </div>
 
 <script>
-/* ===== includes (partials) ===== */
-async function loadPartial(el) {
-  const url = el.getAttribute('data-include');
-  try {
-    const resp = await fetch(url, { cache: 'no-store' });
-    const html = await resp.text();
-    el.innerHTML = html;
+/* ===== Logo segura (Drive) ===== */
+document.addEventListener("DOMContentLoaded", () => {
+  const DRIVE_FILE_ID = "10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e";
+  const el = document.getElementById("tufds-logo");
+  if (!el) return;
 
-    const scripts = Array.from(el.querySelectorAll('script'));
-    for (const old of scripts) {
-      const s = document.createElement('script');
-      if (old.type) s.type = old.type;
-      if (old.src) s.src = old.src; else s.text = old.textContent || '';
-      old.parentNode.replaceChild(s, old);
-      await Promise.resolve();
-    }
+  const img = new Image();
+  img.alt = "Logo TUFDS";
+  img.referrerPolicy = "no-referrer";
+  img.style.width = "100%";
+  img.style.height = "100%";
+  img.style.objectFit = "contain";
+  img.style.borderRadius = "50%";
+  img.style.padding = "6px";
+  img.style.background = "#e5e7eb";
 
-    el.dispatchEvent(new CustomEvent('partial:loaded', { bubbles:true, detail:{ url } }));
-
-    if (url.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
-      window.initOrixas(el);
-    }
-  } catch (e) {
-    console.error('Erro ao carregar partial', url, e);
-    el.innerHTML = '<p class="muted">Conteúdo indisponível.</p>';
-  }
-}
-document.querySelectorAll('[data-include]').forEach(loadPartial);
-
-async function ensureIncludeLoaded(panelEl){
-  if (!panelEl) return;
-  const html = (panelEl.innerHTML || '').trim();
-  if (html && !/Conteúdo indisponível/i.test(html)) return;
-  await loadPartial(panelEl);
-}
-
-/* ===== controla visibilidade do aside (só na Home) ===== */
-const shell = document.getElementById('app-shell');
-const sidePanel = document.getElementById('side-panel');
-function setAsideVisible(on){
-  if (!shell || !sidePanel) return;
-  sidePanel.classList.toggle('hidden', !on);
-  shell.classList.toggle('single', !on);
-}
-
-/* ===== ativa a aba Sobre + sub-aba específica ===== */
-async function abrirSobre(key){
-  const btnSobre = document.querySelector('.tab-btn[data-tab="sobre"]');
-  if (btnSobre) btnSobre.click();
-
-  const btns    = document.querySelectorAll('.sobre-tab-btn');
-  const panels  = document.querySelectorAll('.sobre-panel');
-  const alvoBtn = document.querySelector(`.sobre-tab-btn[data-sobre="${key}"]`);
-  const alvo    = document.getElementById(`sobre-${key}`);
-
-  btns.forEach(b => b.classList.remove('active'));
-  if (alvoBtn) alvoBtn.classList.add('active');
-
-  panels.forEach(p => p.classList.remove('active'));
-  if (alvo){
-    alvo.classList.add('active'); // <-- correção: 'active' como string
-    await ensureIncludeLoaded(alvo);
-  }
-}
-
-/* ===== abas ===== */
-const tabs = document.querySelectorAll('.tab-btn:not(.sobre-tab-btn)');
-const sections = document.querySelectorAll('.section');
-
-function garanteCalendario(){ if (!calJaBuscou || !eventosCalendario.length) carregarCalendario(); else { montarFiltroMeses(); renderCalendario(); renderHomeProximas(); } }
-
-tabs.forEach(btn=>{
-  btn.addEventListener('click', async ()=>{
-    tabs.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-
-    const tab = btn.dataset.tab;
-    sections.forEach(sec=>sec.classList.toggle('active', sec.id===`sec-${tab}`));
-
-    // mostra aside só na Home
-    setAsideVisible(tab === 'home');
-
-    if (tab === 'calendario') {
-      garanteCalendario();
-    }
-    if (tab === 'sobre') {
-      const ativo = document.querySelector('.sobre-panel.active') || document.getElementById('sobre-info');
-      await ensureIncludeLoaded(ativo);
-    }
-    if (tab === 'orixas') {
-      const cont = document.querySelector('#sec-orixas [data-include="/partials/Orixas.html"]') || document.querySelector('#sec-orixas');
-      if (typeof window.initOrixas === 'function' && cont) {
-        window.initOrixas(cont);
-      }
-      cont?.addEventListener('partial:loaded', (ev)=>{
-        if (ev.detail?.url?.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
-          window.initOrixas(cont);
-        }
-      }, { once:true });
-    }
-  });
-});
-
-/* ===== delegação para sub-abas (Sobre) – robusto a recarregamentos ===== */
-document.addEventListener('click', async (ev)=>{
-  const btn = ev.target.closest('.sobre-tab-btn');
-  if(!btn) return;
-  const key = btn.dataset.sobre;
-  await abrirSobre(key);
-});
-
-/* ===== atalhos cards ===== */
-document.getElementById('card-doacoes')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="doacoes"]').click());
-document.getElementById('card-biblioteca')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="biblioteca"]').click());
-document.getElementById('card-pedidos')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="pedidos"]').click());
-document.getElementById('card-historia')?.addEventListener('click', ()=> abrirSobre('historia'));
-document.getElementById('card-visitantes')?.addEventListener('click', ()=> abrirSobre('visitantes'));
-document.getElementById('card-primeiros')?.addEventListener('click', ()=> abrirSobre('primeiros'));
-document.getElementById('card-hierarquia')?.addEventListener('click', ()=> abrirSobre('hierarquia'));
-document.getElementById('card-ritual')?.addEventListener('click', ()=> abrirSobre('ritual'));
-document.getElementById('card-orixas')?.addEventListener('click', ()=> document.querySelector('.tab-btn[data-tab="orixas"]').click());
-
-/* ===== calendário ===== */
-let eventosCalendario = [];
-let calJaBuscou = false;
-
-const calSelect     = document.getElementById('calMesSelect');
-const calLista      = document.getElementById('calLista');
-const homeProxLista = document.getElementById('homeProximasLista');
-
-function setLoadingCalendario(on=true){
-  if(!calLista) return;
-  calLista.innerHTML = on
-    ? '<div class="muted">Carregando calendário...</div>'
-    : '';
-}
-
-async function carregarCalendario(){
-  try {
-    setLoadingCalendario(true);
-    const res = await fetch('/api/getCalendarioEventos');
-    const data = await res.json();
-
-    calJaBuscou = true;
-    eventosCalendario = data.eventos || [];
-    montarFiltroMeses();
-    renderCalendario();
-    renderHomeProximas();
-    setLoadingCalendario(false);
-
-  } catch (err) {
-    console.error('Erro ao carregar calendário:', err);
-    calLista && (calLista.innerHTML = `<div class="muted">
-      Falha ao carregar a agenda. ${err?.message ? 'Detalhe: '+err.message : ''}
-    </div>`);
-  }
-}
-
-function montarFiltroMeses(){
-  if(!calSelect) return;
-  calSelect.innerHTML = '<option value="">Todos</option>';
-  const nomes=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const mapa={};
-  (eventosCalendario||[]).forEach(ev=>{
-    if(ev.mesAnoKey && !mapa[ev.mesAnoKey]){
-      const [ano,mes]=ev.mesAnoKey.split('-');
-      mapa[ev.mesAnoKey] = `${nomes[parseInt(mes,10)-1]}/${ano}`;
-    }
-  });
-  Object.keys(mapa).sort().forEach(k=>{
-    const o=document.createElement('option'); o.value=k; o.textContent=mapa[k];
-    calSelect.appendChild(o);
-  });
-}
-
-function renderCalendario(){
-  if(!calLista) return;
-  calLista.innerHTML='';
-  let lista = eventosCalendario || [];
-  if(calSelect?.value) lista = lista.filter(ev=>ev.mesAnoKey===calSelect.value);
-
-  if(!lista.length){
-    calLista.innerHTML='<div class="muted">Nenhuma gira neste mês.</div>';
-    return;
-  }
-
-  lista.forEach(ev=>{
-    let nome = ev.linha || ev.atividade || '';
-    if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
-    const [dia,mes,ano] = (ev.dataStr||'').split('/');
-    const row=document.createElement('div');
-    row.className='cal-item';
-    row.innerHTML = `
-      <div class="cal-date">
-        <div class="dia">${dia||'--'}</div>
-        <div>${mes||'--'}/${ano||'--'}</div>
-      </div>
-      <div class="cal-main">
-        <div class="cal-title">Gira ${nome||''}</div>
-      </div>`;
-    calLista.appendChild(row);
-  });
-}
-calSelect?.addEventListener('change', renderCalendario);
-
-function renderHomeProximas(){
-  if(!homeProxLista) return;
-  homeProxLista.innerHTML='';
-  if(!eventosCalendario.length){
-    homeProxLista.innerHTML='<p class="muted">Sem giras cadastradas.</p>';
-    return;
-  }
-  const hojeISO = new Date().toISOString().slice(0,10);
-  const proximas = eventosCalendario.filter(ev=>ev.iso >= hojeISO).slice(0,4);
-  proximas.forEach(ev=>{
-    let nome = ev.linha || ev.atividade || '';
-    if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
-    const item = document.createElement('div');
-    item.className = 'next-item';
-    item.innerHTML = `<span class="next-date">${ev.dataStr}</span>
-                      <span class="next-badge">Gira ${nome}</span>`;
-    homeProxLista.appendChild(item);
-  });
-}
-
-/* ===== newsletter ===== */
-function abrirNewsletterModal(){ document.getElementById('newsletter-modal')?.classList.remove('hidden'); }
-function fecharNewsletterModal(){ document.getElementById('newsletter-modal')?.classList.add('hidden'); localStorage.setItem('tufds_newsletter_shown','1'); }
-function enviarNewsletterEmail(){ alert('Função de newsletter desativada neste ambiente.'); }
-
-/* ===== boot ===== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  // página abre na Home → aside visível
-  setAsideVisible(true);
-
-  // carrega calendário assim que possível
-  garanteCalendario();
-
-  // exibe modal uma vez
-  const jaMostrou = localStorage.getItem('tufds_newsletter_shown');
-  if(!jaMostrou) abrirNewsletterModal();
+  img.onload = () => { el.innerHTML = ""; el.appendChild(img); };
+  img.onerror = () => {
+    el.innerHTML = `<img src="https://drive.google.com/uc?export=view&id=${DRIVE_FILE_ID}" 
+      alt="Logo TUFDS" style="width:100%;height:100%;object-fit:contain;border-radius:50%;padding:6px;background:#e5e7eb;">`;
+  };
+  img.src = `https://drive.google.com/thumbnail?id=${DRIVE_FILE_ID}&sz=w256`;
 });
 </script>
 
