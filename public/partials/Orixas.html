@@ -72,58 +72,96 @@
 
 <!-- ONDE O TEXTO DO ORIXÁ VAI APARECER -->
 <div id="orixaConteudo" class="orixa-conteudo-card">
-  <!-- Aqui entra o conteúdo carregado via Apps Script -->
   <p class="muted">Selecione um Orixá para ver a descrição.</p>
 </div>
 
 <script>
-  (function(){
-    const btns = document.querySelectorAll('.orixa-btn');
-    const container = document.getElementById('orixaConteudo');
+/**
+ * Inicializador chamado pela página-mãe DEPOIS que o partial é injetado
+ * e também quando a aba "Orixás" é aberta.
+ * rootEl: o container onde este partial foi inserido (o <div data-include="...">).
+ */
+window.initOrixas = function initOrixas(rootEl){
+  // evita ligar eventos mais de uma vez
+  const root = rootEl && rootEl.querySelector ? rootEl : document;
+  if (root.__orixas_bound__) return;
+  root.__orixas_bound__ = true;
 
-    const mapaArquivos = {
-      oxala:   'Oxala',
-      ogum:    'Ogum',
-      iansa:   'Iansa',
-      iemanja: 'Iemanja',
-      oxum:    'Oxum',
-      xango:   'Xango',
-      oxossi:  'Oxossi',
-      obaluae: 'Obaluae',
-      nana:    'Nana'
-    };
+  const btns = root.querySelectorAll('.orixa-btn');
+  const container = root.querySelector('#orixaConteudo');
 
-    function carregarOrixa(chave){
-      const arquivo = mapaArquivos[chave];
-      if (!arquivo) return;
+  if (!btns.length || !container) return; // nada a fazer
 
+  const mapaArquivos = {
+    oxala:   'Oxala',
+    ogum:    'Ogum',
+    iansa:   'Iansa',
+    iemanja: 'Iemanja',
+    oxum:    'Oxum',
+    xango:   'Xango',
+    oxossi:  'Oxossi',
+    obaluae: 'Obaluae',
+    nana:    'Nana'
+  };
+
+  function setLoading(on=true){
+    if (!container) return;
+    container.innerHTML = on
+      ? '<p class="muted">Carregando…</p>'
+      : '';
+  }
+
+  async function carregarOrixa(chave){
+    const arquivo = mapaArquivos[chave];
+    if (!arquivo || !container) return;
+
+    setLoading(true);
+
+    // 1) Preferência: Apps Script
+    if (window.google && google.script && google.script.run && typeof google.script.run.getOrixaHtml === 'function') {
       google.script.run
         .withSuccessHandler(function(html){
-          container.innerHTML = html;
+          container.innerHTML = html || '<p class="muted">Sem conteúdo para este Orixá.</p>';
+        })
+        .withFailureHandler(function(err){
+          container.innerHTML = '<p class="muted">Falha ao carregar o conteúdo.</p>';
+          console.error('getOrixaHtml falhou:', err);
         })
         .getOrixaHtml(arquivo);
+      return;
     }
 
-    btns.forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const chave = btn.dataset.orixa;
+    // 2) Fallback: endpoint REST do seu back (/api/orixa?name=)
+    try{
+      const resp = await fetch(`/api/orixa?name=${encodeURIComponent(arquivo)}`);
+      if (!resp.ok) throw new Error('HTTP '+resp.status);
+      const html = await resp.text();
+      container.innerHTML = html || '<p class="muted">Sem conteúdo para este Orixá.</p>';
+    }catch(e){
+      console.error('Fallback falhou:', e);
+      container.innerHTML = '<p class="muted">Conteúdo indisponível no momento.</p>';
+    }
+  }
 
-        // visual dos botões
-        btns.forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
+  // liga os cliques (escopo no root para não misturar com outras abas)
+  btns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const chave = btn.dataset.orixa;
 
-        // carrega conteúdo
-        carregarOrixa(chave);
-      });
+      // visual
+      btns.forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // carrega
+      carregarOrixa(chave);
     });
+  });
 
-    // Deixa Oxalá selecionado e carregado ao abrir a aba
-    const btnOxala = document.querySelector('.orixa-btn[data-orixa="oxala"]');
-    if (btnOxala) {
-      btnOxala.classList.add('active');
-      carregarOrixa('oxala');
-    }
-  })();
+  // Seleção padrão (Oxalá)
+  const btnOxala = root.querySelector('.orixa-btn[data-orixa="oxala"]');
+  if (btnOxala && !btnOxala.classList.contains('active')) {
+    btnOxala.classList.add('active');
+    carregarOrixa('oxala');
+  }
+};
 </script>
-
-
