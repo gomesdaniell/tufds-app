@@ -212,7 +212,14 @@
 
   <!-- HEADER -->
   <div class="header">
-    <div class="logo-circle" id="tufds-logo">T</div>
+    <div class="logo-circle" id="tufds-logo">
+      <!-- LOGO direta via Drive; se falhar, mostra "T" -->
+      <img
+        src="https://drive.google.com/uc?export=view&id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3"
+        alt="Logo TUFDS"
+        onerror="this.remove();this.parentNode.textContent='T';"
+      />
+    </div>
     <div>
       <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
       <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
@@ -481,7 +488,7 @@ async function abrirSobre(key){
   const alvo    = document.getElementById(`sobre-${key}`);
 
   btns.forEach(b => b.classList.remove('active'));
-  if (alvoBtn) alvoBtn.classList.add('active'));
+  if (alvoBtn) alvoBtn.classList.add('active');
 
   panels.forEach(p => p.classList.remove('active'));
   if (alvo){
@@ -620,7 +627,7 @@ function renderCalendario(){
   }
 
   lista.forEach(ev=>{
-    let nome = ev.linha ou ev.atividade || '';
+    let nome = ev.linha || ev.atividade || '';
     if(nome.toLowerCase().startsWith('atividade ')) nome = nome.substring(10);
     const [dia,mes,ano] = (ev.dataStr||'').split('/');
     const row=document.createElement('div');
@@ -663,29 +670,8 @@ function abrirNewsletterModal(){ document.getElementById('newsletter-modal')?.cl
 function fecharNewsletterModal(){ document.getElementById('newsletter-modal')?.classList.add('hidden'); localStorage.setItem('tufds_newsletter_shown','1'); }
 function enviarNewsletterEmail(){ alert('Função de newsletter desativada neste ambiente.'); }
 
-/* ===== LOGO: carregar DEPOIS do DOM pronto ===== */
-function carregarLogoTUFDS(){
-  const DRIVE_FILE_ID = "1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3";
-  const el = document.getElementById('tufds-logo');
-  if(!el) return;
-  const img = new Image();
-  img.alt = "Logo TUFDS";
-  img.src = `https://drive.google.com/thumbnail?id=${DRIVE_FILE_ID}&sz=w256`;
-  img.style.width = "100%";
-  img.style.height = "100%";
-  img.style.objectFit = "cover";
-  img.style.borderRadius = "50%";
-  img.onload = ()=>{ el.innerHTML = ""; el.appendChild(img); };
-  img.onerror = ()=>{
-    el.innerHTML = `<img alt="Logo TUFDS" src="https://drive.google.com/uc?export=view&id=${DRIVE_FILE_ID}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-  };
-}
-
 /* ===== boot ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // carrega a LOGO primeiro (sem travar o resto)
-  carregarLogoTUFDS();
-
   // página abre na Home → aside visível
   setAsideVisible(true);
   garanteCalendario();
