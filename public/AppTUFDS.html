@@ -212,7 +212,11 @@
 
   <!-- HEADER -->
   <div class="header">
-    <div class="logo-circle" id="tufds-logo">T</div>
+    <div class="logo-circle" id="tufds-logo">
+      <!-- Logo direta do Drive -->
+      <img alt="Logo TUFDS"
+           src="https://drive.google.com/uc?export=view&id=10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e">
+    </div>
     <div>
       <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
       <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
@@ -425,29 +429,6 @@
 </div>
 
 <script>
-/* ===== util: carregar logo do Google Drive (converte para dataURL p/ evitar CORS) ===== */
-const DRIVE_VIEW_URL = "https://drive.google.com/uc?export=view&id=10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e"; // <-- NOVO ID
-(function loadDriveLogo(){
-  const el = document.getElementById('tufds-logo');
-  if(!el) return;
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.onload = () => {
-    try{
-      const c=document.createElement('canvas');
-      c.width=img.naturalWidth; c.height=img.naturalHeight;
-      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
-      const data=c.toDataURL('image/png');
-      el.innerHTML = `<img alt="Logo TUFDS" src="${data}">`;
-    }catch(e){
-      // fallback: exibe imagem direta se canvas bloquear
-      el.innerHTML = `<img alt="Logo TUFDS" src="${DRIVE_VIEW_URL}">`;
-    }
-  };
-  img.onerror = ()=>{/* mantém o T fallback */};
-  img.src = DRIVE_VIEW_URL;
-})();
-
 /* ===== includes (partials) ===== */
 async function loadPartial(el) {
   const url = el.getAttribute('data-include');
@@ -508,7 +489,7 @@ async function abrirSobre(key){
 
   panels.forEach(p => p.classList.remove('active'));
   if (alvo){
-    alvo.classList.add(active);
+    alvo.classList.add('active'); // <-- correção: 'active' como string
     await ensureIncludeLoaded(alvo);
   }
 }
@@ -516,6 +497,8 @@ async function abrirSobre(key){
 /* ===== abas ===== */
 const tabs = document.querySelectorAll('.tab-btn:not(.sobre-tab-btn)');
 const sections = document.querySelectorAll('.section');
+
+function garanteCalendario(){ if (!calJaBuscou || !eventosCalendario.length) carregarCalendario(); else { montarFiltroMeses(); renderCalendario(); renderHomeProximas(); } }
 
 tabs.forEach(btn=>{
   btn.addEventListener('click', async ()=>{
@@ -581,16 +564,6 @@ function setLoadingCalendario(on=true){
   calLista.innerHTML = on
     ? '<div class="muted">Carregando calendário...</div>'
     : '';
-}
-
-function garanteCalendario(){
-  if (!calJaBuscou || !eventosCalendario.length) {
-    carregarCalendario();
-  } else {
-    montarFiltroMeses();
-    renderCalendario();
-    renderHomeProximas();
-  }
 }
 
 async function carregarCalendario(){
@@ -690,8 +663,11 @@ function enviarNewsletterEmail(){ alert('Função de newsletter desativada neste
 document.addEventListener('DOMContentLoaded', ()=>{
   // página abre na Home → aside visível
   setAsideVisible(true);
+
+  // carrega calendário assim que possível
   garanteCalendario();
 
+  // exibe modal uma vez
   const jaMostrou = localStorage.getItem('tufds_newsletter_shown');
   if(!jaMostrou) abrirNewsletterModal();
 });
