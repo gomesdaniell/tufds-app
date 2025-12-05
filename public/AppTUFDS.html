@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>App TUFDS – Consulentes</title>
 
-<!-- polyfill para manter google.script.run -->
+<!-- polyfill para manter google.script.run (não quebra se não existir) -->
 <script src="/gsrun.js"></script>
 
 <style>
@@ -404,17 +404,27 @@
 async function loadPartial(el) {
   const url = el.getAttribute('data-include');
   try {
-    const html = await (await fetch(url)).text();
+    const resp = await fetch(url, { cache: 'no-store' });
+    const html = await resp.text();
     el.innerHTML = html;
 
-    // executa <script> internos do partial
-    const scripts = el.querySelectorAll('script');
-    scripts.forEach(old => {
+    // executa <script> internos do partial na ordem
+    const scripts = Array.from(el.querySelectorAll('script'));
+    for (const old of scripts) {
       const s = document.createElement('script');
-      if (old.type) s.type = old.type;
-      if (old.src) { s.src = old.src; } else { s.text = old.textContent || ''; }
+      if (old.type) s.type = old.type;       // preserva type="module" se houver
+      if (old.src) s.src = old.src; else s.text = old.textContent || '';
       old.parentNode.replaceChild(s, old);
-    });
+      await Promise.resolve();               // microtask para manter ordem
+    }
+
+    // avisa que o partial terminou de carregar
+    el.dispatchEvent(new CustomEvent('partial:loaded', { bubbles:true, detail:{ url } }));
+
+    // se for o partial de Orixás, chama o inicializador (se já existir)
+    if (url.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
+      window.initOrixas(el);
+    }
   } catch (e) {
     console.error('Erro ao carregar partial', url, e);
     el.innerHTML = '<p class="muted">Conteúdo indisponível.</p>';
@@ -469,10 +479,27 @@ tabs.forEach(btn=>{
     if (tab === 'calendario') {
       garanteCalendario();
     }
+
     if (tab === 'sobre') {
-      // garante que o painel ativo esteja com conteúdo
       const ativo = document.querySelector('.sobre-panel.active') || document.getElementById('sobre-info');
       await ensureIncludeLoaded(ativo);
+    }
+
+    // ===== Orixás: garante inicialização mesmo se o usuário abrir a aba depois
+    if (tab === 'orixas') {
+      const cont = document.querySelector('#sec-orixas [data-include="/partials/Orixas.html"]') || document.querySelector('#sec-orixas');
+
+      // se init já está disponível e o partial contém os botões, chama direto
+      if (typeof window.initOrixas === 'function' && cont) {
+        window.initOrixas(cont);
+      }
+
+      // se o partial ainda não sinalizou carregamento, escuta o evento
+      cont?.addEventListener('partial:loaded', (ev)=>{
+        if (ev.detail?.url?.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
+          window.initOrixas(cont);
+        }
+      }, { once:true });
     }
   });
 });
