@@ -64,7 +64,8 @@
   }
   .logo-circle{
     width:56px;height:56px;border-radius:50%;
-    background:var(--accent-soft);
+    /* Fundo mais neutro para logos brancas/transp. não “sumirem” */
+    background:#e5e7eb;
     border:1px solid #a7f3d0;
     color:var(--accent);
     display:grid;place-items:center;
@@ -73,8 +74,13 @@
     overflow:hidden;
   }
   .logo-circle img{
-    width:100%;height:100%;object-fit:cover;border-radius:50%;
+    width:100%;height:100%;
+    /* Mostra a arte inteira, mesmo se for quadrada/retângulo */
+    object-fit:contain;
+    /* Pequena folga para não colar nas bordas do círculo */
+    padding:6px;
     display:block;
+    border-radius:50%;
   }
   .header h1{
     margin:0;font-size:24px;line-height:1.15;
@@ -94,9 +100,23 @@
     /* máscara nas bordas p/ dar fade e parecer mais clean */
     -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
             mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+
+    /* Firefox */
+    scrollbar-width:thin;
+    scrollbar-color:#cbd5e1 #f3f4f6;
   }
-  /* esconder scrollbar (desktop); no mobile iOS/Android fica ok */
-  .tabs::-webkit-scrollbar{ height:0 }
+  /* WebKit/Chrome/Edge – reativa e estiliza a barra */
+  .tabs::-webkit-scrollbar{ height:8px }
+  .tabs::-webkit-scrollbar-track{
+    background:#f3f4f6;
+    border-radius:999px;
+  }
+  .tabs::-webkit-scrollbar-thumb{
+    background:#cbd5e1;
+    border-radius:999px;
+    border:2px solid #f3f4f6;
+  }
+
   .tab-btn{
     display:inline-flex;
     align-items:center;
@@ -217,6 +237,7 @@
       <img
         src="https://drive.google.com/uc?export=view&id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3"
         alt="Logo TUFDS"
+        referrerpolicy="no-referrer"
         onerror="this.remove();this.parentNode.textContent='T';"
       />
     </div>
@@ -683,3 +704,4 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 </body>
 </html>
+
