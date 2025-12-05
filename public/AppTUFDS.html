@@ -232,15 +232,48 @@
 
   <!-- HEADER -->
   <div class="header">
-    <div class="logo-circle" id="tufds-logo">
-      <!-- LOGO direta via Drive; se falhar, mostra "T" -->
-      <img
-        src="https://drive.google.com/uc?export=view&id=1dvqBxgfETpSgK25tFL3d8Tf7-i3wGZA3"
-        alt="Logo TUFDS"
-        referrerpolicy="no-referrer"
-        onerror="this.remove();this.parentNode.textContent='T';"
-      />
-    </div>
+<div class="logo-circle" id="tufds-logo">
+  <!-- LOGO direta via Drive; se falhar, mostra "T" -->
+  <img
+    src="https://drive.google.com/uc?export=view&id=10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e"
+    alt="Logo TUFDS"
+    referrerpolicy="no-referrer"
+    onerror="this.remove();this.parentNode.textContent='T';"
+  />
+</div>
+
+document.addEventListener("DOMContentLoaded", () => {
+  const DRIVE_FILE_ID = "10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e";
+  const el = document.getElementById("tufds-logo");
+  if (!el) return;
+
+  const img = new Image();
+  img.alt = "Logo TUFDS";
+  img.referrerPolicy = "no-referrer";
+  img.style.width = "100%";
+  img.style.height = "100%";
+  img.style.objectFit = "contain";
+  img.style.borderRadius = "50%";
+  img.style.padding = "6px";
+  img.style.background = "#e5e7eb";
+
+  img.onload = () => {
+    el.innerHTML = "";
+    el.appendChild(img);
+  };
+
+  img.onerror = () => {
+    el.innerHTML = `<img alt="Logo TUFDS" 
+      src="https://drive.google.com/uc?export=view&id=${DRIVE_FILE_ID}" 
+      style="width:100%;height:100%;object-fit:contain;border-radius:50%;padding:6px;background:#e5e7eb;">`;
+  };
+
+  img.src = `https://drive.google.com/thumbnail?id=${DRIVE_FILE_ID}&sz=w256`;
+});
+
+
+
+    
     <div>
       <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
       <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
