@@ -1,1 +1,9 @@
-
+{
+  "name": "tufds-app",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "24.x" },
+  "dependencies": {
+    "googleapis": "^130.0.0"
+  }
+}
