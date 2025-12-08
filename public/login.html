@@ -54,12 +54,14 @@
 
 <script>
 (async () => {
-  // Se já estiver logado, pula direto pro painel
+  // Se já estiver logado, pula direto pro painel administrativo
   try {
-    const me = await fetch('/api/auth/me.js'); // <- COM .js para casar com o arquivo
+    const me = await fetch('/api/auth/me'); // <- sem .js
     const j = await me.json();
-    if (j.ok) window.location.href = '/app/index.html';
-  } catch {}
+    if (j.ok) window.location.href = '/admin/index.html';
+  } catch (e) {
+    console.debug('me() ainda não autenticado (ok):', e);
+  }
 })();
 
 const form = document.getElementById('loginForm');
@@ -68,31 +70,30 @@ const err  = document.getElementById('err');
 const st   = document.getElementById('status');
 
 form.addEventListener('submit', async (ev) => {
-  ev.preventDefault();                 // <- impede reload que “apaga” os campos
-  err.textContent = ''; st.textContent = 'Validando...';
+  ev.preventDefault(); // evita reload
+  err.textContent = '';
+  st.textContent = 'Validando...';
   btn.disabled = true;
 
   const email = document.getElementById('email').value.trim();
   const senha = document.getElementById('senha').value;
 
   try {
-    const res = await fetch('/api/auth/login.js', { // <- COM .js
+    const res = await fetch('/api/auth/login', { // <- sem .js
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // same-origin já aceita Set-Cookie; manter default é ok
       body: JSON.stringify({ email, senha })
     });
 
     const data = await res.json().catch(() => ({}));
+    console.debug('login() status', res.status, data);
 
     if (!res.ok || !data.ok) {
       throw new Error(data?.message || 'Não foi possível autenticar.');
     }
 
     st.textContent = 'Autenticado! Redirecionando...';
-    // dá 1 tick para gravar o cookie e ir:
-    setTimeout(() => { window.location.href = '/app/index.html'; }, 100);
-
+    setTimeout(() => { window.location.href = '/admin/index.html'; }, 150);
   } catch (e) {
     err.textContent = e.message || 'Falha no login.';
     st.textContent = '';
