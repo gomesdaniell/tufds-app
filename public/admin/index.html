@@ -53,13 +53,13 @@
     document.getElementById('user-name').textContent = data.user.nome || data.user.email;
     document.body.classList.add('auth-ok');
   } catch (e) {
-    window.location.href = '/login.html';
+    window.location.href = '/public/login.html';
   }
 })();
 
 async function sair() {
   await fetch('/api/auth/logout.js', { method: 'POST' });
-  window.location.href = '/login.html';
+  window.location.href = '/index.html';
 }
 </script>
 </head>
