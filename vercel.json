@@ -1,7 +1,11 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "index.html" },
-    { "source": "/doacoes", "destination": "/Doacoes.html" },
-    { "source": "/contato", "destination": "/Contato.html" }
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "public/**/*", "use": "@vercel/static" },
+    { "src": "api/**/*.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/", "dest": "/index.html" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
