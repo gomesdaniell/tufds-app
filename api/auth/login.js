@@ -1,5 +1,5 @@
 // api/auth/login.js
-import bcrypt from 'bcryptjs';
+
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { readRange } from '../../lib/sheets.js';
@@ -16,10 +16,6 @@ function normalize(str) {
 async function checkPasswordAgainstHash(plain, storedHash) {
   const hash = String(storedHash || '').trim();
 
-  // 1) bcrypt
-  if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
-    return bcrypt.compare(String(plain), hash);
-  }
 
   // 2) SHA-256 Base64 (padrão do Apps Script com .digest(SHA_256) + Base64)
   const isLikelySha256B64 = /^[A-Za-z0-9+/]{40,44}={0,2}$/.test(hash);
