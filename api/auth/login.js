@@ -14,23 +14,24 @@ function normalize(str) {
 
 // Detecta formato do hash e valida
 async function checkPasswordAgainstHash(plain, storedHash) {
-  const hash = normalize(storedHash);
+  const hash = String(storedHash || '').trim();
 
   // 1) bcrypt
   if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
     return bcrypt.compare(String(plain), hash);
   }
 
-  // 2) SHA-256 em Base64 (ex.: q4p2...9E=)
-  // comprimento típico: 43–44 chars, pode terminar com "="
+  // 2) SHA-256 Base64
   const isLikelySha256B64 = /^[A-Za-z0-9+/]{40,44}={0,2}$/.test(hash);
   if (isLikelySha256B64) {
-    const digest = crypto
-      .createHash('sha256')
-      .update(String(plain), 'utf8')
-      .digest('base64'); // <- compara em Base64
+    const digest = crypto.createHash('sha256').update(String(plain), 'utf8').digest('base64');
+    console.log('🧩 Comparando hash calculado:', digest);
+    console.log('🧩 Hash armazenado:', hash);
     return digest === hash;
   }
+
+  return false;
+}
 
   // Caso queira, aqui dá pra adicionar outros formatos (hex, md5 etc.)
   return false;
