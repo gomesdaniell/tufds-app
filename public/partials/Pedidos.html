@@ -90,6 +90,7 @@
   (function initPedidos(){
     bindEventosPedidos();
     carregarCatalogo();
+    // Painel desativado
   })();
 
   /* =======================
@@ -151,17 +152,6 @@
   }
 
   /* =======================
-     HELPERS DE ID/STRING
-  ======================== */
-  function makeKey(s){
-    return String(s||'')
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // remove acentos
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g,'-')                      // mantém a-z0-9 e -
-      .replace(/(^-|-$)/g,'');                         // remove - nas pontas
-  }
-
-  /* =======================
      CATÁLOGO
   ======================== */
   async function carregarCatalogo(){
@@ -174,17 +164,13 @@
                   : Array.isArray(data?.data?.catalogo) ? data.data.catalogo
                   : [];
 
-      CATALOGO = bruto.map(x=>{
-        const categoria = String(x.categoria ?? '').trim();
-        const descricao = String(x.descricao ?? x.item ?? '').trim();
-        const unidade   = String(x.unidade ?? x.unid ?? '').trim();
-        const preco     = Number(x.preco ?? x.preço ?? 0) || 0;
-
-        const idRaw   = String(x.idItem ?? x.id ?? '').trim();
-        const idItem  = idRaw || makeKey(`${categoria}|${descricao}|${unidade}`);
-
-        return { idItem, categoria, descricao, unidade, preco };
-      })
+      CATALOGO = bruto.map(x=>({
+        idItem: String(x.idItem ?? x.id ?? '').trim() || String(Math.random()).slice(2),
+        categoria: String(x.categoria ?? '').trim(),
+        descricao: String(x.descricao ?? x.item ?? '').trim(),
+        unidade: String(x.unidade ?? x.unid ?? '').trim(),
+        preco: Number(x.preco ?? x.preço ?? 0) || 0
+      }))
       .filter(x=> x.descricao)
       .sort((a,b)=>{
         const c = (a.categoria||'').localeCompare(b.categoria||'', 'pt-BR');
@@ -214,61 +200,38 @@
       return;
     }
     let html = '<table><thead><tr><th>Categoria</th><th>Item</th><th>Unid</th><th>Preço</th><th>Qtd</th><th></th></tr></thead><tbody>';
-    for (const it of lista){
+    lista.forEach(it=>{
       const precoFmt = formatMoney(Number(it.preco)||0);
-      const id = it.idItem;
+      const safeDesc = String(it.descricao||'').replace(/'/g,"\\'");
+      const safeId   = String(it.idItem||'').replace(/"/g,'&quot;');
       html += `
         <tr>
-          <td>${escapeHtml(it.categoria||'')}</td>
-          <td>${escapeHtml(it.descricao||'')}</td>
-          <td>${escapeHtml(it.unidade||'')}</td>
+          <td>${it.categoria||''}</td>
+          <td>${it.descricao||''}</td>
+          <td>${it.unidade||''}</td>
           <td>R$ ${precoFmt}</td>
-          <td><input type="number" id="q_${id}" class="qtd-input" min="1" step="1" value="1"></td>
-          <td>
-            <button class="btn-add"
-                    data-id="${id}"
-                    data-desc="${escapeHtml(it.descricao||'')}"
-                    data-unid="${escapeHtml(it.unidade||'')}"
-                    data-preco="${Number(it.preco)||0}">
-              Adicionar
-            </button>
-          </td>
+          <td><input type="number" id="q_${safeId}" class="qtd-input" min="1" step="1" value="1"></td>
+          <td><button class="btn-add" onclick="addCarrinho('${safeId}','${safeDesc}','${it.unidade||''}',${Number(it.preco)||0})">Adicionar</button></td>
         </tr>
       `;
-    }
+    });
     html += '</tbody></table>';
     el.innerHTML = html;
-
-    // Delegação de eventos (liga uma única vez)
-    if (!el._delegado){
-      el.addEventListener('click', (e)=>{
-        const btn = e.target.closest('.btn-add');
-        if (!btn) return;
-        const id    = String(btn.dataset.id || '');
-        const desc  = btn.dataset.desc || '';
-        const unid  = btn.dataset.unid || '';
-        const preco = Number(btn.dataset.preco)||0;
-        addCarrinho(id, desc, unid, preco);
-      });
-      el._delegado = true;
-    }
   }
 
   /* =======================
      CARRINHO
   ======================== */
   function addCarrinho(id, desc, unid, preco){
-    id = String(id||''); // normaliza
-
     const input = document.getElementById('q_'+id);
     let qtd = parseInt(input && input.value ? input.value : '1', 10);
     if (isNaN(qtd) || qtd<=0) qtd=1;
 
-    const existente = CARRINHO.find(x=> x.idItem === id);
+    const existente = CARRINHO.find(x=>x.idItem===id);
     if (existente){
       existente.qtd += qtd;
     } else {
-      CARRINHO.push({ idItem:id, descricao:desc, unidade:unid, preco:Number(preco)||0, qtd:qtd });
+      CARRINHO.push({ idItem:id, descricao:desc, unidade:unid, preco:Number(preco||0), qtd:qtd });
     }
     renderCarrinho();
   }
@@ -389,7 +352,7 @@
     resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
     if (resto !== parseInt(cpf.substring(9,10))) return false;
     soma=0;
-    for (let i=1;i<=10;i++) soma += parseInt(cpf.substring(i-1,i))* (12-i);
+    for (let i=1;i<=10;i++) soma += parseInt(cpf.substring(i-1,i))* (12-i); /* <-- corrigido: i++ */
     resto = (soma*10)%11; if (resto===10||resto===11) resto=0;
     if (resto !== parseInt(cpf.substring(10,11))) return false;
     return true;
