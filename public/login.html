@@ -56,9 +56,9 @@
 (async () => {
   // Se já estiver logado, pula direto pro painel administrativo
   try {
-    const me = await fetch('/api/auth/me'); // <- sem .js
+    const me = await fetch('/api/auth/me.js');
     const j = await me.json();
-    if (j.ok) window.location.href = '/admin/index.html';
+    if (j.ok) window.location.href = '/public/admin/index.html';
   } catch (e) {
     console.debug('me() ainda não autenticado (ok):', e);
   }
@@ -79,7 +79,7 @@ form.addEventListener('submit', async (ev) => {
   const senha = document.getElementById('senha').value;
 
   try {
-    const res = await fetch('/api/auth/login', { // <- sem .js
+    const res = await fetch('/api/auth/login.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, senha })
@@ -93,7 +93,7 @@ form.addEventListener('submit', async (ev) => {
     }
 
     st.textContent = 'Autenticado! Redirecionando...';
-    setTimeout(() => { window.location.href = '/admin/index.html'; }, 150);
+    setTimeout(() => { window.location.href = '/public/admin/index.html'; }, 150);
   } catch (e) {
     err.textContent = e.message || 'Falha no login.';
     st.textContent = '';
