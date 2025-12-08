@@ -46,7 +46,7 @@
 <script>
 (async () => {
   try {
-    const res = await fetch('/api/auth/me');
+    const res = await fetch('/api/auth/me.js');
     const data = await res.json();
     if (!data.ok) throw new Error();
 
@@ -58,7 +58,7 @@
 })();
 
 async function sair() {
-  await fetch('/api/auth/logout', { method: 'POST' });
+  await fetch('/api/auth/logout.js', { method: 'POST' });
   window.location.href = '/login.html';
 }
 </script>
