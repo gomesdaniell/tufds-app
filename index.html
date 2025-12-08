@@ -471,46 +471,6 @@
 </div>
 
 <script>
-<script>
-/** Carrega a logo do Drive com fallbacks confiáveis (sem canvas) */
-(function loadDriveLogo(){
-  const DRIVE_ID = "10KI1SmJMFBAuly-t84pNuNMUKKQFoM1e";
-  const el = document.getElementById('tufds-logo');
-  if (!el) return;
-
-  // Ordem de tentativas (algumas funcionam melhor dependendo da conta/domínio):
-  const CANDIDATES = [
-    // thumbnail (rápido, aceita hotlink; ajuste o tamanho como quiser)
-    `https://drive.google.com/thumbnail?id=${DRIVE_ID}&sz=w200`,
-    // usercontent (variante nova do Google, costuma liberar CORS/hotlink)
-    `https://drive.usercontent.google.com/uc?id=${DRIVE_ID}&export=download`,
-    // clássico "view"
-    `https://drive.google.com/uc?export=view&id=${DRIVE_ID}`,
-    // clássico "download"
-    `https://drive.google.com/uc?export=download&id=${DRIVE_ID}`
-  ];
-
-  function tryNext(i){
-    if (i >= CANDIDATES.length) return; // mantém o fallback de texto
-    const src = CANDIDATES[i];
-    const img = new Image();
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.referrerPolicy = "no-referrer"; // evita bloqueios por referência
-    img.alt = "Logo TUFDS";
-    img.onload = () => {
-      el.innerHTML = "";
-      // injeta a imagem carregada
-      img.className = "tufds-logo-img";
-      el.appendChild(img);
-    };
-    img.onerror = () => tryNext(i+1);
-    img.src = src;
-  }
-
-  tryNext(0);
-})();
-</script>
 
 
 /* ===== includes (partials) ===== */
