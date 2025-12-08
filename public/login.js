@@ -33,7 +33,7 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     }
 
     // cookie HttpOnly foi setado; agora redireciona pro painel
-    window.location.href = '/app/index.html';
+    window.location.href = 'public/app/index.html';
   } catch (err) {
     msg.textContent = 'Erro de rede. Tente novamente.';
     console.error(err);
