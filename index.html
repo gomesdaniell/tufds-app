@@ -56,20 +56,32 @@
     align-items:center;
     gap:14px;
   }
-  .logo-circle{
-    width:56px;height:56px;border-radius:50%;
-    background:var(--accent-soft);
-    border:1px solid #a7f3d0;
-    color:var(--accent);
-    display:grid;place-items:center;
-    font-weight:800;font-size:22px;
-    flex:0 0 56px;
-    overflow:hidden;
-  }
-  .logo-circle img{
-    width:100%;height:100%;object-fit:cover;border-radius:50%;
-    display:block;
-  }
+ .logo-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 1px solid #a7f3d0;
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 22px;
+  flex: 0 0 56px;
+  overflow: hidden;
+}
+
+/* LOGO: exibir imagem inteira, centralizada e proporcional */
+.logo-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff; /* fundo neutro para áreas transparentes */
+  border-radius: 50%;
+  display: block;
+  padding: 4px; /* dá leve respiro interno */
+}
+
   .header h1{ margin:0;font-size:24px;line-height:1.15; }
   .sub{ color:var(--muted); margin-top:2px; font-size:14px }
 
@@ -195,16 +207,25 @@
 <div class="shell" id="app-shell">
 
   <!-- HEADER -->
-  <div class="header">
-    <div class="logo-circle" id="tufds-logo">
-      <img src="/assets/logo-tufds.png" alt="Logotipo TUFDS" width="56" height="56" loading="eager" decoding="async" />
-    </div>
-
-    <div>
-      <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
-      <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
-    </div>
+  <!-- HEADER -->
+<div class="header">
+  <div class="logo-circle" id="tufds-logo">
+    <img
+      src="/assets/logo-tufds.png"
+      alt="Logotipo TUFDS"
+      width="56"
+      height="56"
+      loading="eager"
+      decoding="async"
+    />
   </div>
+
+  <div>
+    <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
+    <div class="sub">Espaço de fé, acolhimento e aprendizado.</div>
+  </div>
+</div>
+
 
   <!-- TABS (com scroll horizontal) -->
   <div class="tabs" id="tabs">
