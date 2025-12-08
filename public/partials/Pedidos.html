@@ -131,13 +131,13 @@
      API HELPERS
   ======================== */
   async function apiGetCatalogo(){
-    const res = await fetch('/api/getCatalogoPedidos', { cache:'no-store' });
+    const res = await fetch('/api/getCatalogoPedidos.js', { cache:'no-store' });
     if (!res.ok) throw new Error('Falha ao buscar catálogo: HTTP '+res.status);
     return res.json();
   }
 
   async function apiSalvarPedido(body){
-    const res = await fetch('/api/salvarPedidoConsulente', {
+    const res = await fetch('/api/salvarPedidoConsulente.js', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(body),
