@@ -539,6 +539,23 @@ document.addEventListener('click', async (ev)=>{
   await abrirSobre(key);
 });
 
+<script>
+// util: abre uma aba pelo data-tab
+function openTab(tab){ document.querySelector(`.tab-btn[data-tab="${tab}"]`)?.click(); }
+
+// ATALHOS DOS CARDS (clique no card -> navega)
+document.getElementById('card-primeiros')  ?.addEventListener('click', ()=> abrirSobre('primeiros'));
+document.getElementById('card-visitantes') ?.addEventListener('click', ()=> abrirSobre('visitantes'));
+document.getElementById('card-biblioteca') ?.addEventListener('click', ()=> openTab('biblioteca'));
+document.getElementById('card-historia')   ?.addEventListener('click', ()=> abrirSobre('historia'));
+document.getElementById('card-hierarquia') ?.addEventListener('click', ()=> abrirSobre('hierarquia'));
+document.getElementById('card-orixas')     ?.addEventListener('click', ()=> openTab('orixas'));
+document.getElementById('card-ritual')     ?.addEventListener('click', ()=> abrirSobre('ritual'));
+document.getElementById('card-doacoes')    ?.addEventListener('click', ()=> openTab('doacoes'));
+document.getElementById('card-pedidos')    ?.addEventListener('click', ()=> openTab('pedidos'));
+</script>
+
+  
 /* ===== calendário ===== */
 let eventosCalendario = [];
 let calJaBuscou = false;
