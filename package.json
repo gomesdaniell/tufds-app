@@ -4,7 +4,6 @@
   "type": "module",
   "engines": { "node": "24.x" },
   "dependencies": {
-    "jsonwebtoken": "^9.0.2"
     "googleapis": "^130.0.0"
   },
   "scripts": {
@@ -12,4 +11,5 @@
     "start": "echo \"use vercel dev\""
   }
 }
+
 
