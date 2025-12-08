@@ -1,13 +1,7 @@
 {
-  "version": 2,
-  "cleanUrls": true,
-  "trailingSlash": false,
-
   "rewrites": [
-    { "source": "/", "destination": "/index.html" }
-  ],
-
-  "functions": {
-    "api/**/*.js": { "runtime": "nodejs24.x" }
-  }
+    { "source": "/", "destination": "/AppTUFDS.html" },
+    { "source": "/doacoes", "destination": "/Doacoes.html" },
+    { "source": "/contato", "destination": "/Contato.html" }
+  ]
 }
