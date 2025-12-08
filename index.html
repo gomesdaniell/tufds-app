@@ -39,15 +39,9 @@
     grid-template-columns: 1fr 320px; /* padrão: 2 colunas */
     gap:24px;
   }
-  /* quando não tiver aside: vira 1 coluna */
-  .shell.single{
-    grid-template-columns: 1fr;
-  }
-  @media (max-width: 1024px){
-    .shell{ grid-template-columns: 1fr }
-  }
+  .shell.single{ grid-template-columns: 1fr; }
+  @media (max-width: 1024px){ .shell{ grid-template-columns: 1fr } }
 
-  /* utilidade: esconder */
   .hidden{ display:none !important; }
 
   /* ===== header ===== */
@@ -76,88 +70,44 @@
     width:100%;height:100%;object-fit:cover;border-radius:50%;
     display:block;
   }
-  .header h1{
-    margin:0;font-size:24px;line-height:1.15;
-  }
+  .header h1{ margin:0;font-size:24px;line-height:1.15; }
   .sub{ color:var(--muted); margin-top:2px; font-size:14px }
 
-/* ===== tabs (menu principal com scroll horizontal) ===== */
-.tabs{
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 12px;
-  margin-top: 12px;
-  margin-bottom: 10px;
-  padding: 6px 2px;
+  /* ===== tabs (menu principal com scroll horizontal) ===== */
+  .tabs{
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    margin-bottom: 10px;
+    padding: 6px 2px;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    position: relative;
+    scrollbar-width: thin;               
+    scrollbar-color: var(--border) transparent;
+  }
+  .tabs::-webkit-scrollbar{ height: 6px; }
+  .tabs::-webkit-scrollbar-track{ background: transparent; }
+  .tabs::-webkit-scrollbar-thumb{ background: var(--border); border-radius: 3px; }
+  .tabs:hover::-webkit-scrollbar-thumb{ background: var(--accent); }
+  .tabs::before,.tabs::after{
+    content:""; position:absolute; top:0; bottom:8px; width:16px; pointer-events:none; z-index:0;
+  }
+  .tabs::before{ left:0; background:linear-gradient(to right, var(--bg, #fff), rgba(255,255,255,0)); }
+  .tabs::after{ right:0; background:linear-gradient(to left, var(--bg, #fff), rgba(255,255,255,0)); }
+  .tabs > *{ position:relative; z-index:1; }
 
-  white-space: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-
-  position: relative;         /* cria contexto p/ z-index */
-  /* nada de mask-image aqui */
-  scrollbar-width: thin;               /* Firefox */
-  scrollbar-color: var(--border) transparent;
-}
-
-/* Scrollbar WebKit */
-.tabs::-webkit-scrollbar{ height: 6px; }
-.tabs::-webkit-scrollbar-track{ background: transparent; }
-.tabs::-webkit-scrollbar-thumb{
-  background: var(--border);
-  border-radius: 3px;
-}
-.tabs:hover::-webkit-scrollbar-thumb{ background: var(--accent); }
-
-/* --- Fades nas bordas: ficam ATRÁS do conteúdo --- */
-.tabs::before,
-.tabs::after{
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 8px;                /* deixa espaço p/ scrollbar */
-  width: 16px;
-  pointer-events: none;
-  z-index: 0;                 /* atrás de tudo */
-}
-.tabs::before{
-  left: 0;
-  background: linear-gradient(to right, var(--bg, #fff), rgba(255,255,255,0));
-}
-.tabs::after{
-  right: 0;
-  background: linear-gradient(to left, var(--bg, #fff), rgba(255,255,255,0));
-}
-
-/* GARANTE que os itens fiquem acima dos fades */
-.tabs > *{
-  position: relative;
-  z-index: 1;
-}
-
-/* ===== botões ===== */
-.tab-btn{
-  display:inline-flex;
-  align-items:center;
-  border:1px solid var(--border);
-  background:#fff;
-  color:var(--text);
-  padding:10px 16px;
-  border-radius:999px;
-  font-weight:600;
-  font-size:15px;
-  cursor:pointer;
-  white-space:nowrap;
-}
-.tab-btn:focus{ outline:2px solid #d1fae5; outline-offset:2px; }
-.tab-btn.active{
-  background:var(--accent);
-  border-color:var(--accent);
-  color:#ecfdf5;
-}
-
+  .tab-btn{
+    display:inline-flex; align-items:center;
+    border:1px solid var(--border); background:#fff; color:var(--text);
+    padding:10px 16px; border-radius:999px; font-weight:600; font-size:15px; cursor:pointer; white-space:nowrap;
+  }
+  .tab-btn:focus{ outline:2px solid #d1fae5; outline-offset:2px; }
+  .tab-btn.active{ background:var(--accent); border-color:var(--accent); color:#ecfdf5; }
 
   /* ===== cards ===== */
   .card{
@@ -177,9 +127,7 @@
     grid-template-columns: 1fr 1fr;
     gap:16px;
   }
-  @media (max-width: 720px){
-    .home-grid{ grid-template-columns: 1fr }
-  }
+  @media (max-width: 720px){ .home-grid{ grid-template-columns: 1fr } }
 
   .home-card{
     display:flex; align-items:center; gap:14px;
@@ -190,8 +138,7 @@
   .home-card:hover{ background:#f9fafb; transform:translateY(-1px) }
   .home-card-icon{
     width:44px;height:44px;border-radius:12px;
-    display:grid;place-items:center;font-size:26px;
-    background:#eef2ff;
+    display:grid;place-items:center;font-size:26px;background:#eef2ff;
   }
   .home-card strong{ font-size:18px; display:block; margin-bottom:4px }
 
@@ -201,13 +148,8 @@
   .col-right .card + .card{ margin-top:16px }
 
   /* ===== calendario list ===== */
-  .cal-toolbar{
-    display:flex; align-items:center; gap:10px; margin-bottom:10px;
-  }
-  .cal-select{
-    padding:8px 12px; border:1px solid var(--border);
-    border-radius:10px; background:#fff; font-size:14px;
-  }
+  .cal-toolbar{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .cal-select{ padding:8px 12px; border:1px solid var(--border); border-radius:10px; background:#fff; font-size:14px; }
   .cal-list{ display:flex; flex-direction:column; gap:12px }
   .cal-item{
     display:flex; gap:12px; align-items:center;
@@ -220,7 +162,7 @@
   .cal-date .dia{ font-size:22px }
   .cal-title{ font-size:16px; font-weight:700 }
 
-  /* ===== sidebar "Espaço do TUFDS" ===== */
+  /* ===== sidebar ===== */
   .side-title{ font-weight:800; font-size:26px; margin:0 0 8px 0 }
   .next-list{ display:flex; flex-direction:column; gap:10px; margin-top:6px }
   .next-item{
@@ -244,7 +186,6 @@
   .btn-primario{ background:var(--accent); color:#fff }
   .btn-secundario{ background:#e5e7eb; color:#111827 }
 
-  /* ===== Sub-abas "Sobre a Casa" ===== */
   .sobre-panel{ display:none; }
   .sobre-panel.active{ display:block; }
 </style>
@@ -256,8 +197,8 @@
   <!-- HEADER -->
   <div class="header">
     <div class="logo-circle" id="tufds-logo">
-  <img src="/assets/Logo_TUFDS.png" alt="Logotipo TUFDS" />
-</div>
+      <img src="/assets/logo-tufds.png" alt="Logotipo TUFDS" width="56" height="56" loading="eager" decoding="async" />
+    </div>
 
     <div>
       <h1>Terreiro de Umbanda Filhos do Sagrado - TUFDS</h1>
@@ -471,8 +412,6 @@
 </div>
 
 <script>
-
-
 /* ===== includes (partials) ===== */
 async function loadPartial(el) {
   const url = el.getAttribute('data-include');
@@ -481,20 +420,17 @@ async function loadPartial(el) {
     const html = await resp.text();
     el.innerHTML = html;
 
-    // reexecuta <script> internos do partial:
     const scripts = Array.from(el.querySelectorAll('script'));
     for (const old of scripts) {
       const s = document.createElement('script');
       if (old.type) s.type = old.type;
       if (old.src) s.src = old.src; else s.text = old.textContent || '';
       old.parentNode.replaceChild(s, old);
-      await Promise.resolve(); // rendeiriza entre trocas
+      await Promise.resolve();
     }
 
-    // evento para quem quiser ouvir
     el.dispatchEvent(new CustomEvent('partial:loaded', { bubbles:true, detail:{ url } }));
 
-    // gatilho específico do módulo Orixás, se existir
     if (url.includes('/partials/Orixas.html') && typeof window.initOrixas === 'function') {
       window.initOrixas(el);
     }
@@ -503,7 +439,6 @@ async function loadPartial(el) {
     el.innerHTML = '<p class="muted">Conteúdo indisponível.</p>';
   }
 }
-// carrega todos os partials marcados
 document.querySelectorAll('[data-include]').forEach(loadPartial);
 
 async function ensureIncludeLoaded(panelEl){
@@ -537,7 +472,7 @@ async function abrirSobre(key){
 
   panels.forEach(p => p.classList.remove('active'));
   if (alvo){
-    alvo.classList.add('active');   // <— corrigido (aspas)
+    alvo.classList.add('active');
     await ensureIncludeLoaded(alvo);
   }
 }
@@ -554,7 +489,6 @@ tabs.forEach(btn=>{
     const tab = btn.dataset.tab;
     sections.forEach(sec=>sec.classList.toggle('active', sec.id===`sec-${tab}`));
 
-    // mostra aside só na Home
     setAsideVisible(tab === 'home');
 
     if (tab === 'calendario') {
@@ -578,24 +512,13 @@ tabs.forEach(btn=>{
   });
 });
 
-/* ===== delegação para sub-abas (Sobre) – robusto a recarregamentos ===== */
+/* ===== delegação para sub-abas (Sobre) ===== */
 document.addEventListener('click', async (ev)=>{
   const btn = ev.target.closest('.sobre-tab-btn');
   if(!btn) return;
   const key = btn.dataset.sobre;
   await abrirSobre(key);
 });
-
-/* ===== atalhos cards ===== */
-document.getElementById('card-doacoes')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="doacoes"]').click());
-document.getElementById('card-biblioteca')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="biblioteca"]').click());
-document.getElementById('card-pedidos')?.addEventListener('click', ()=>document.querySelector('.tab-btn[data-tab="pedidos"]').click());
-document.getElementById('card-historia')?.addEventListener('click', ()=> abrirSobre('historia'));
-document.getElementById('card-visitantes')?.addEventListener('click', ()=> abrirSobre('visitantes'));
-document.getElementById('card-primeiros')?.addEventListener('click', ()=> abrirSobre('primeiros'));
-document.getElementById('card-hierarquia')?.addEventListener('click', ()=> abrirSobre('hierarquia'));
-document.getElementById('card-ritual')?.addEventListener('click', ()=> abrirSobre('ritual'));
-document.getElementById('card-orixas')?.addEventListener('click', ()=> document.querySelector('.tab-btn[data-tab="orixas"]').click());
 
 /* ===== calendário ===== */
 let eventosCalendario = [];
@@ -607,9 +530,7 @@ const homeProxLista = document.getElementById('homeProximasLista');
 
 function setLoadingCalendario(on=true){
   if(!calLista) return;
-  calLista.innerHTML = on
-    ? '<div class="muted">Carregando calendário...</div>'
-    : '';
+  calLista.innerHTML = on ? '<div class="muted">Carregando calendário...</div>' : '';
 }
 
 function garanteCalendario(){
@@ -625,7 +546,7 @@ function garanteCalendario(){
 async function carregarCalendario(){
   try {
     setLoadingCalendario(true);
-    const res = await fetch('/api/getCalendarioEventos.js');
+    const res = await fetch('/api/getCalendarioEventos.js'); // (mantido conforme seu projeto)
     const data = await res.json();
 
     calJaBuscou = true;
@@ -717,7 +638,6 @@ function enviarNewsletterEmail(){ alert('Função de newsletter desativada neste
 
 /* ===== boot ===== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // página abre na Home → aside visível
   setAsideVisible(true);
   garanteCalendario();
 
