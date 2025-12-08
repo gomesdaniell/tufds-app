@@ -539,6 +539,19 @@ document.addEventListener('click', async (ev)=>{
   await abrirSobre(key);
 });
 
+/* ===== atalhos dos cards ===== */
+function openTab(tab){ document.querySelector(`.tab-btn[data-tab="${tab}"]`)?.click(); }
+
+document.getElementById('card-doacoes')    ?.addEventListener('click', ()=> openTab('doacoes'));
+document.getElementById('card-biblioteca') ?.addEventListener('click', ()=> openTab('biblioteca'));
+document.getElementById('card-pedidos')    ?.addEventListener('click', ()=> openTab('pedidos'));
+document.getElementById('card-historia')   ?.addEventListener('click', ()=> abrirSobre('historia'));
+document.getElementById('card-visitantes') ?.addEventListener('click', ()=> abrirSobre('visitantes'));
+document.getElementById('card-primeiros')  ?.addEventListener('click', ()=> abrirSobre('primeiros'));
+document.getElementById('card-hierarquia') ?.addEventListener('click', ()=> abrirSobre('hierarquia'));
+document.getElementById('card-ritual')     ?.addEventListener('click', ()=> abrirSobre('ritual'));
+document.getElementById('card-orixas')     ?.addEventListener('click', ()=> openTab('orixas'));
+
 /* ===== calendário ===== */
 let eventosCalendario = [];
 let calJaBuscou = false;
@@ -565,7 +578,7 @@ function garanteCalendario(){
 async function carregarCalendario(){
   try {
     setLoadingCalendario(true);
-    const res = await fetch('/api/getCalendarioEventos.js'); // (mantido conforme seu projeto)
+    const res = await fetch('/api/getCalendarioEventos.js');
     const data = await res.json();
 
     calJaBuscou = true;
@@ -664,6 +677,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(!jaMostrou) abrirNewsletterModal();
 });
 </script>
+
 
 </body>
 </html>
