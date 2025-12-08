@@ -148,12 +148,12 @@
 
   // ===== API helpers
   async function apiGetDoaCatalogo(){
-    const res = await fetch('api/getDoacoesCatalogo'); // já existente
+    const res = await fetch('api/getDoacoesCatalogo.js'); // já existente
     if (!res.ok) throw new Error('Falha ao buscar catálogo de doações');
     return res.json();
   }
   async function apiSalvarCompromisso(body){
-    const res = await fetch('api/salvarDoacaoCompromisso', {
+    const res = await fetch('api/salvarDoacaoCompromisso.js', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify(body)
