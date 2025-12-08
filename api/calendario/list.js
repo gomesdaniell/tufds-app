@@ -1,5 +1,5 @@
 // api/calendario/list.js
-import { readRange } from '../../lib/sheets.js';
+import { readRange } from '/lib/sheets.js';
 
 function norm(s='') {
   return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
