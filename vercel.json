@@ -1,13 +1,10 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "partials/**/*", "use": "@vercel/static" },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
-  ],
   "routes": [
     { "src": "/", "dest": "/index.html" },
-    { "src": "/(.*)", "dest": "/$1" }
+
+    // 🔽 Faz /api/xyz resolver para /api/xyz.js
+    { "src": "/api/(.*)$", "dest": "/api/$1.js" }
   ]
 }
