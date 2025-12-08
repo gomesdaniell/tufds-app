@@ -643,7 +643,7 @@ function garanteCalendario(){
 async function carregarCalendario(){
   try {
     setLoadingCalendario(true);
-    const res = await fetch('/api/getCalendarioEventos');
+    const res = await fetch('/api/getCalendarioEventos.js');
     const data = await res.json();
 
     calJaBuscou = true;
