@@ -1,15 +1,13 @@
 {
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "public/**/*", "use": "@vercel/static" },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "^/$", "dest": "/index.html" },
-    { "src": "^/api/(.*)$", "dest": "/api/$1.js" },
-    { "src": "^(?!/api/).*$", "dest": "/$1" }
-  ],
+  "version": 2,
   "cleanUrls": true,
-  "trailingSlash": false
-}
+  "trailingSlash": false,
 
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" }
+  ],
+
+  "functions": {
+    "api/**/*.js": { "runtime": "nodejs20.x" }
+  }
+}
