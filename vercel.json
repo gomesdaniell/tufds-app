@@ -3,11 +3,12 @@
   "trailingSlash": false,
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
-    { "src": "partials/**/*", "use": "@vercel/static" },
+    { "src": "public/**/*", "use": "@vercel/static" },
     { "src": "api/**/*.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/(.*)", "dest": "/$1" }
+    { "src": "^/$", "dest": "/index.html" },
+    { "src": "^/api/(.*)$", "dest": "/api/$1.js" },
+    { "src": "^(.*)$", "dest": "$1" }
   ]
 }
