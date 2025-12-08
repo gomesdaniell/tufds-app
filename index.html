@@ -81,57 +81,46 @@
   }
   .sub{ color:var(--muted); margin-top:2px; font-size:14px }
 
- /* ===== tabs (menu principal com scroll horizontal) ===== */
+/* ===== tabs (menu principal com scroll horizontal) ===== */
 .tabs{
   grid-column: 1 / -1;
   display: flex;
   gap: 12px;
-  margin-top: 12px; 
+  margin-top: 12px;
   margin-bottom: 10px;
   padding: 6px 2px;
 
   white-space: nowrap;
   overflow-x: auto;
-  overflow-y: hidden;            /* não briga com o scroll vertical da página */
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
 
-  position: relative;            /* necessário para os fades */
-  /* REMOVER a máscara que cortava o scrollbar */
-  -webkit-mask-image: none;
-  mask-image: none;
-
-  /* Firefox: deixa a barra fininha e com cor */
-  scrollbar-width: thin;
+  position: relative;         /* cria contexto p/ z-index */
+  /* nada de mask-image aqui */
+  scrollbar-width: thin;               /* Firefox */
   scrollbar-color: var(--border) transparent;
 }
 
-/* Scrollbar (WebKit) visível e discreto */
-.tabs::-webkit-scrollbar{
-  height: 6px;                   /* altura do scrollbar horizontal */
-}
-.tabs::-webkit-scrollbar-track{
-  background: transparent;
-}
+/* Scrollbar WebKit */
+.tabs::-webkit-scrollbar{ height: 6px; }
+.tabs::-webkit-scrollbar-track{ background: transparent; }
 .tabs::-webkit-scrollbar-thumb{
   background: var(--border);
   border-radius: 3px;
 }
-.tabs:hover::-webkit-scrollbar-thumb{
-  background: var(--accent);
-}
+.tabs:hover::-webkit-scrollbar-thumb{ background: var(--accent); }
 
-/* Fades nas bordas sem cortar o scrollbar */
+/* --- Fades nas bordas: ficam ATRÁS do conteúdo --- */
 .tabs::before,
 .tabs::after{
   content: "";
   position: absolute;
   top: 0;
-  bottom: 8px;                   /* deixa espaço para o scrollbar aparecer */
+  bottom: 8px;                /* deixa espaço p/ scrollbar */
   width: 16px;
   pointer-events: none;
-  /* ajuste a cor inicial do gradiente conforme o fundo do seu layout */
-  /* se tiver --bg definido, ótimo; senão use a cor de fundo do container */
+  z-index: 0;                 /* atrás de tudo */
 }
 .tabs::before{
   left: 0;
@@ -142,25 +131,31 @@
   background: linear-gradient(to left, var(--bg, #fff), rgba(255,255,255,0));
 }
 
+/* GARANTE que os itens fiquem acima dos fades */
+.tabs > *{
+  position: relative;
+  z-index: 1;
+}
+
 /* ===== botões ===== */
 .tab-btn{
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  background: #fff;
-  color: var(--text);
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 15px;
-  cursor: pointer;
-  white-space: nowrap;
+  display:inline-flex;
+  align-items:center;
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  padding:10px 16px;
+  border-radius:999px;
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+  white-space:nowrap;
 }
-.tab-btn:focus{ outline: 2px solid #d1fae5; outline-offset: 2px; }
+.tab-btn:focus{ outline:2px solid #d1fae5; outline-offset:2px; }
 .tab-btn.active{
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #ecfdf5;
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#ecfdf5;
 }
 
 
