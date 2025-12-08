@@ -80,7 +80,7 @@
     lista.innerHTML = '<div class="muted">Carregando arquivos da biblioteca...</div>';
 
     try{
-      const url = new URL('/api/getBibliotecaArquivos', window.location.origin);
+      const url = new URL('/api/getBibliotecaArquivos.js', window.location.origin);
       if (term) url.searchParams.set('searchText', term);
       if (tipo) url.searchParams.set('mimeFilter', tipo);
 
