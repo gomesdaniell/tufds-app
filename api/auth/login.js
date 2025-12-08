@@ -21,19 +21,22 @@ async function checkPasswordAgainstHash(plain, storedHash) {
     return bcrypt.compare(String(plain), hash);
   }
 
-  // 2) SHA-256 Base64
+  // 2) SHA-256 Base64 (padrão do Apps Script com .digest(SHA_256) + Base64)
   const isLikelySha256B64 = /^[A-Za-z0-9+/]{40,44}={0,2}$/.test(hash);
   if (isLikelySha256B64) {
-    const digest = crypto.createHash('sha256').update(String(plain), 'utf8').digest('base64');
-    console.log('🧩 Comparando hash calculado:', digest);
-    console.log('🧩 Hash armazenado:', hash);
+    const digest = crypto
+      .createHash('sha256')
+      .update(String(plain), 'utf8')
+      .digest('base64');
+
+    // logs de sanidade (aparecem nos Function Logs da Vercel)
+    console.log('🧩 Calculado:', digest);
+    console.log('🧩 Armazenado:', hash);
+
     return digest === hash;
   }
 
-  return false;
-}
-
-  // Caso queira, aqui dá pra adicionar outros formatos (hex, md5 etc.)
+  // (outros formatos poderiam ser adicionados aqui se necessário)
   return false;
 }
 
@@ -63,7 +66,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, message: 'Colunas não encontradas (E-mail ou SENHA_HASH).' });
     }
 
-    const alvo = rows.slice(1).find(r => normalize(r[ixEmail]).toLowerCase() === normalize(email).toLowerCase());
+    const alvo = rows
+      .slice(1)
+      .find(r => normalize(r[ixEmail]).toLowerCase() === normalize(email).toLowerCase());
+
     if (!alvo) {
       return res.status(401).json({ ok: false, message: 'E-mail não cadastrado.' });
     }
