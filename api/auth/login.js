@@ -1,5 +1,4 @@
 // api/auth/login.js
-
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { readRange } from '../../lib/sheets.js';
@@ -12,28 +11,18 @@ function normalize(str) {
   return String(str || '').trim();
 }
 
-// Detecta formato do hash e valida
-async function checkPasswordAgainstHash(plain, storedHash) {
-  const hash = String(storedHash || '').trim();
+// Validação de senha SHA-256 Base64 (padrão Google Apps Script)
+function checkPasswordAgainstHash(plain, storedHash) {
+  const hash = normalize(storedHash);
+  const digest = crypto
+    .createHash('sha256')
+    .update(String(plain), 'utf8')
+    .digest('base64');
 
+  console.log('🧩 Calculado:', digest);
+  console.log('🧩 Armazenado:', hash);
 
-  // 2) SHA-256 Base64 (padrão do Apps Script com .digest(SHA_256) + Base64)
-  const isLikelySha256B64 = /^[A-Za-z0-9+/]{40,44}={0,2}$/.test(hash);
-  if (isLikelySha256B64) {
-    const digest = crypto
-      .createHash('sha256')
-      .update(String(plain), 'utf8')
-      .digest('base64');
-
-    // logs de sanidade (aparecem nos Function Logs da Vercel)
-    console.log('🧩 Calculado:', digest);
-    console.log('🧩 Armazenado:', hash);
-
-    return digest === hash;
-  }
-
-  // (outros formatos poderiam ser adicionados aqui se necessário)
-  return false;
+  return digest === hash;
 }
 
 export default async function handler(req, res) {
@@ -53,7 +42,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, message: 'Planilha vazia ou inacessível.' });
     }
 
-    const header = rows[0].map(h => String(h || '').trim());
+    const header = rows[0].map(h => normalize(h));
     const ixEmail = header.findIndex(h => /e-?mail/i.test(h));
     const ixHash  = header.findIndex(h => /senha.*hash/i.test(h));
     const ixNome  = header.findIndex(h => /^nome\b/i.test(h));
@@ -71,7 +60,7 @@ export default async function handler(req, res) {
     }
 
     const storedHash = normalize(alvo[ixHash]);
-    const passOK = await checkPasswordAgainstHash(senha, storedHash);
+    const passOK = checkPasswordAgainstHash(senha, storedHash);
     if (!passOK) {
       return res.status(401).json({ ok: false, message: 'Senha incorreta.' });
     }
