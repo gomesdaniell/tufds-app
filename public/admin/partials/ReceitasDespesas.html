@@ -107,7 +107,8 @@
   // --- Init: carrega categorias e nomes via fetch ---
   async function init(){
     try {
-      const res = await fetch('/api/finance/init.js');
+      const res = await fetch('/api/finance/init.js', { cache: 'no-store' });
+;
       const data = await res.json();
       if (!data.ok) throw new Error(data.message);
 
