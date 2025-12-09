@@ -1,124 +1,141 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Painel Interno – TUFDS</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel Interno – TUFDS</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: #f3f4f6;
-    }
+<style>
+  :root{
+    --teal:#0f766e;
+    --teal-600:#0d5f57;
+    --pill-bg:#ffffff;
+    --pill-text:#0f766e;
+    --pill-bg-hover:#e6f4f3;
+  }
 
-    header {
-      background: #0f766e;
-      color: white;
-      padding: 12px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
+  /* Reset básico */
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:#f3f4f6;
+    color:#111827;
+  }
 
-    header h1 {
-      margin: 0;
-      font-size: 20px;
-      font-weight: 700;
-    }
+  /* Header */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:var(--teal); color:#fff;
+    box-shadow:0 2px 6px rgba(0,0,0,.12);
+  }
+  .hdr-inner{
+    max-width:1200px; margin:0 auto;
+    padding:18px 20px;
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:16px;
+    align-items:center;
+  }
+  .brand{
+    min-width:0;
+  }
+  .brand h1{
+    margin:0 0 10px 0;
+    font-size:28px; line-height:1.1; font-weight:800;
+  }
 
-    nav.tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
+  /* Tabs */
+  nav.tabs{
+    display:flex; flex-wrap:wrap; gap:12px;
+  }
+  .tab-btn{
+    background:var(--pill-bg); color:var(--pill-text);
+    border:0; border-radius:999px;
+    padding:10px 18px; font-weight:700; cursor:pointer;
+    transition:background .15s ease, transform .06s ease;
+    white-space:nowrap;
+  }
+  .tab-btn:hover{ background:var(--pill-bg-hover) }
+  .tab-btn:active{ transform:translateY(1px) }
+  .tab-btn.active{ background:transparent; color:#fff; outline:2px solid #fff }
 
-    nav.tabs button {
-      background: white;
-      color: #0f766e;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 999px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all .2s;
-    }
+  /* User box */
+  .user{
+    display:flex; align-items:center; gap:12px;
+  }
+  .user-name{ font-weight:700; font-size:16px; white-space:nowrap }
+  .btn-sair{
+    background:#065f46; color:#fff; border:0; border-radius:999px;
+    padding:8px 16px; font-weight:700; cursor:pointer
+  }
+  .btn-sair:hover{ background:#044f3b }
 
-    nav.tabs button:hover {
-      background: #e0f2f1;
-    }
+  /* View */
+  main#view{
+    max-width:1200px; margin:0 auto;
+    padding:24px 20px 40px;
+    min-height:calc(100vh - 88px);
+  }
 
-    nav.tabs button.active {
-      background: #0f766e;
-      color: white;
+  /* Responsivo */
+  @media (max-width:900px){
+    .brand h1{ font-size:24px }
+  }
+  @media (max-width:720px){
+    .hdr-inner{
+      grid-template-columns:1fr; /* empilha nome/tabs e usuário */
+      gap:10px;
     }
-
-    .user {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .user-name {
-      font-weight: 600;
-    }
-
-    .btn-sair {
-      background: #047857;
-      color: white;
-      border: none;
-      border-radius: 999px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .btn-sair:hover {
-      background: #065f46;
-    }
-
-    main#view {
-      padding: 24px;
-      min-height: calc(100vh - 70px);
-    }
-  </style>
+    .user{ justify-content:space-between }
+    .brand h1{ margin-bottom:6px }
+  }
+</style>
 </head>
 
 <body>
   <header>
-    <div>
-      <h1>Painel Interno – TUFDS</h1>
-      <nav class="tabs">
-        <button data-view="financeiro">Transparência Financeira</button>
-        <button data-view="presencas">Registro de Presenças</button>
-        <button data-view="faltas">Controle de Faltas</button>
-        <button data-view="aulas">Aulas de Desenvolvimento</button>
-        <button data-view="desenvolvimento">Desenvolvimento Individual</button>
-        <button data-view="aniversariantes">Aniversariantes</button>
-      </nav>
-    </div>
+    <div class="hdr-inner">
+      <div class="brand">
+        <h1>Painel Interno – TUFDS</h1>
+        <nav class="tabs" id="tabs">
+          <button class="tab-btn" data-view="financeiro">Transparência Financeira</button>
+          <button class="tab-btn" data-view="presencas">Registro de Presenças</button>
+          <button class="tab-btn" data-view="faltas">Controle de Faltas</button>
+          <button class="tab-btn" data-view="aulas">Aulas de Desenvolvimento</button>
+          <button class="tab-btn" data-view="desenvolvimento">Desenvolvimento Individual</button>
+          <button class="tab-btn" data-view="aniversariantes">Aniversariantes</button>
+        </nav>
+      </div>
 
-    <div class="user">
-      <span class="user-name">Daniel Gomes</span>
-      <button class="btn-sair" onclick="logout()">Sair</button>
+      <div class="user">
+        <span class="user-name" id="userName">Daniel Gomes</span>
+        <button class="btn-sair" onclick="logout()">Sair</button>
+      </div>
     </div>
   </header>
 
   <main id="view">
-    <!-- Aqui os partials serão carregados dinamicamente -->
+    <!-- os partials carregam aqui -->
   </main>
 
   <script>
-    // logout padrão
-    async function logout() {
-      try { await fetch('/api/auth/logout.js', { method: 'POST' }); }
-      finally { window.location.href = '/public/login.html'; }
+    // mantém o highlight da aba ativa (admin.js pode também trocar essa classe)
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+
+    async function logout(){
+      try{ await fetch('/api/auth/logout.js',{method:'POST'}); }
+      finally{ window.location.href='/public/login.html'; }
     }
   </script>
 
-  <!-- Script central que controla as abas e inicializações -->
+  <!-- controlador das abas/partials -->
   <script src="/public/admin/admin.js"></script>
 </body>
 </html>
