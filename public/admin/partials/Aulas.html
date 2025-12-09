@@ -1,105 +1,63 @@
+<!-- public/admin/partials/Aulas.html -->
 <style>
   .aulas-wrap { font-family: Arial, sans-serif; }
-  .aulas-container {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 30px;
-  }
-  .aulas-title { font-size: 32px; margin: 0 0 6px; color: #0f766e; }
-  .aulas-desc { color: #555; margin-bottom: 18px; }
+  .aulas-container { max-width: 1100px; margin: 0 auto; padding: 30px; }
 
-  .aulas-toolbar {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
+  .aulas-title { font-size: 32px; margin: 0 0 6px; color: #0f766e; }
+  .aulas-desc  { color: #555; margin-bottom: 18px; }
+
+  /* Destaque (vídeo mais recente) */
+  .aulas-hero {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     margin-bottom: 18px;
   }
-  .aulas-toolbar input {
-    flex: 1;
-    min-width: 180px;
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    font-size: 15px;
+  .aulas-hero h3 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    color: #111827;
   }
-  .aulas-count {
-    font-size: 14px;
-    color: #666;
+  .aulas-hero-meta {
+    font-size: 12px; color: #6b7280; margin: 6px 0 12px;
+  }
+  .aulas-hero iframe {
+    width: 100%; aspect-ratio: 16/9; border: 0; border-radius: 12px;
+    background: #000;
   }
 
+  /* Toolbar + lista */
+  .aulas-toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 14px 0 18px;
+  }
+  .aulas-toolbar input {
+    flex: 1; min-width: 180px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px;
+  }
+  .aulas-count { font-size: 14px; color: #666; }
+
   .aulas-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;
   }
   .aulas-card {
-    background: #fff;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid #e5e7eb;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;
+    display: flex; flex-direction: column; height: 100%; box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
-  .aulas-thumb {
-    position: relative;
-    width: 100%;
-    padding-top: 56.25%;
-  }
-  .aulas-thumb img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .aulas-play {
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    background: rgba(17,24,39,0.85);
-    color: #fff;
-    padding: 4px 8px;
-    border-radius: 999px;
-    font-size: 11px;
-  }
-  .aulas-body {
-    padding: 10px 12px 12px;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-  }
-  .aulas-body h3 {
-    margin: 0 0 6px;
-    font-size: 15px;
-    line-height: 1.3;
-  }
-  .aulas-meta {
-    font-size: 12px;
-    color: #6b7280;
-  }
-  .aulas-actions {
-    margin-top: auto;
-    display: flex;
-    justify-content: flex-end;
-  }
-  .aulas-btn {
-    background: #0f766e;
-    color: #fff;
-    border: none;
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-size: 12px;
-    cursor: pointer;
-  }
+  .aulas-thumb { position: relative; width: 100%; padding-top: 56.25%; }
+  .aulas-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .aulas-play { position: absolute; right: 8px; bottom: 8px; background: rgba(17,24,39,0.85); color: #fff; padding: 4px 8px; border-radius: 999px; font-size: 11px; }
+  .aulas-body { padding: 10px 12px 12px; display: flex; flex-direction: column; flex: 1; }
+  .aulas-body h4 { margin: 0 0 6px; font-size: 15px; line-height: 1.3; }
+  .aulas-meta { font-size: 12px; color: #6b7280; }
+  .aulas-actions { margin-top: auto; display: flex; justify-content: flex-end; }
+  .aulas-btn { background: #0f766e; color: #fff; border: none; border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
   .aulas-btn:hover { background: #0d5f57; }
-  .aulas-empty {
-    text-align: center;
-    padding: 24px;
-    color: #6b7280;
-    font-size: 14px;
+  .aulas-empty { text-align: center; padding: 24px; color: #6b7280; font-size: 14px; }
+
+  @media (max-width: 600px) {
+    .aulas-container { padding: 16px; }
+    .aulas-title { font-size: 24px; }
   }
 </style>
 
@@ -107,6 +65,18 @@
   <div class="aulas-container">
     <h2 class="aulas-title">Aulas de Desenvolvimento – TUFDS</h2>
     <p class="aulas-desc">Playlist oficial das aulas do desenvolvimento mediúnico do TUFDS.</p>
+
+    <!-- Destaque (vídeo mais recente) -->
+    <div class="aulas-hero" id="aulasHero" style="display:none">
+      <h3 id="heroTitle">Vídeo em destaque</h3>
+      <div class="aulas-hero-meta" id="heroMeta"></div>
+      <iframe id="heroIframe"
+        src=""
+        title="Aula em destaque"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen>
+      </iframe>
+    </div>
 
     <div class="aulas-toolbar">
       <input id="aulasBusca" type="text" placeholder="Filtrar por título..." />
@@ -122,21 +92,36 @@
 
 <script>
 (async function(){
-  // Configurações fixas
-  const API_KEY = 'AIzaSyDNBn-gYt2FUlr_-Dwz25rO4E1anLMovjw';
+  // Configs da playlist
+  const API_KEY     = 'AIzaSyDNBn-gYt2FUlr_-Dwz25rO4E1anLMovjw';
   const PLAYLIST_ID = 'PLp-pLm3piXg_BA9l-tbmgCRkbQ4LoWnKR';
-  const BASE_URL = 'https://www.googleapis.com/youtube/v3/playlistItems';
+  const BASE_URL    = 'https://www.googleapis.com/youtube/v3/playlistItems';
 
+  // Elements
   const listaEl  = document.getElementById('aulasLista');
   const emptyEl  = document.getElementById('aulasEmpty');
   const countEl  = document.getElementById('aulasCount');
   const buscaEl  = document.getElementById('aulasBusca');
+
+  const heroBox   = document.getElementById('aulasHero');
+  const heroTitle = document.getElementById('heroTitle');
+  const heroMeta  = document.getElementById('heroMeta');
+  const heroIframe= document.getElementById('heroIframe');
+
   let VIDEOS_ORIGINAIS = [];
 
-  function fmtData(iso){
+  const fmtData = iso => {
     if(!iso) return '';
     const d = new Date(iso);
     return isNaN(d) ? '' : d.toLocaleDateString('pt-BR');
+  };
+
+  function renderHero(video){
+    if(!video) { heroBox.style.display='none'; return; }
+    heroTitle.textContent = video.title || 'Vídeo em destaque';
+    heroMeta.textContent  = video.publishedAt ? `Publicado em ${fmtData(video.publishedAt)}` : '';
+    heroIframe.src        = `https://www.youtube.com/embed/${video.videoId}`;
+    heroBox.style.display = 'block';
   }
 
   function renderLista(videos){
@@ -148,58 +133,68 @@
     }
     emptyEl.style.display='none';
     countEl.textContent = videos.length + (videos.length===1?' vídeo':' vídeos');
+
     videos.forEach(v=>{
-      const card=document.createElement('div');
-      card.className='aulas-card';
-      card.innerHTML=`
+      const card = document.createElement('div');
+      card.className = 'aulas-card';
+      card.innerHTML = `
         <div class="aulas-thumb">
           <img src="${v.thumb||''}" alt="${v.title}">
           <div class="aulas-play">Assistir</div>
         </div>
         <div class="aulas-body">
-          <h3>${v.title}</h3>
+          <h4>${v.title}</h4>
           <div class="aulas-meta">Publicado em ${fmtData(v.publishedAt)}</div>
           <div class="aulas-actions">
-            <button class="aulas-btn" data-url="${v.url}">Abrir no YouTube</button>
+            <button class="aulas-btn" data-url="${v.url}" data-vid="${v.videoId}">Abrir no YouTube</button>
           </div>
         </div>
       `;
       listaEl.appendChild(card);
     });
+
+    // Clique no botão abre YouTube
     listaEl.querySelectorAll('.aulas-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{
         const url=btn.getAttribute('data-url');
         if(url) window.open(url,'_blank');
       });
     });
+
+    // Clique na thumb atualiza o destaque
     listaEl.querySelectorAll('.aulas-thumb').forEach(div=>{
       div.addEventListener('click',()=>{
-        const btn=div.parentElement.querySelector('.aulas-btn');
-        if(btn) btn.click();
+        const btn = div.parentElement.querySelector('.aulas-btn');
+        if(!btn) return;
+        const vid = btn.getAttribute('data-vid');
+        const v   = VIDEOS_ORIGINAIS.find(x=>x.videoId===vid);
+        if(v) renderHero(v);
+        window.scrollTo({ top: heroBox.offsetTop - 16, behavior: 'smooth' });
       });
     });
   }
 
   function aplicarFiltro(){
-    const termo=buscaEl.value.toLowerCase().trim();
+    const termo = buscaEl.value.toLowerCase().trim();
     if(!termo){ renderLista(VIDEOS_ORIGINAIS); return; }
-    const filtrados=VIDEOS_ORIGINAIS.filter(v=>v.title.toLowerCase().includes(termo));
+    const filtrados = VIDEOS_ORIGINAIS.filter(v => v.title.toLowerCase().includes(termo));
     renderLista(filtrados);
   }
-  buscaEl.addEventListener('input',aplicarFiltro);
+  buscaEl.addEventListener('input', aplicarFiltro);
 
   async function carregarVideos(){
-    let pageToken='';
-    const all=[];
+    let pageToken = '';
+    const all = [];
     try{
       do{
-        const url=`${BASE_URL}?part=snippet&playlistId=${PLAYLIST_ID}&maxResults=50&key=${API_KEY}${pageToken?`&pageToken=${pageToken}`:''}`;
-        const res=await fetch(url);
-        const data=await res.json();
+        const url = `${BASE_URL}?part=snippet&playlistId=${PLAYLIST_ID}&maxResults=50&key=${API_KEY}${pageToken?`&pageToken=${pageToken}`:''}`;
+        const res = await fetch(url);
+        const data = await res.json();
         if(data.error) throw new Error(data.error.message);
+
         (data.items||[]).forEach(item=>{
-          const sn=item.snippet;
-          if(!sn || sn.resourceId.kind!=='youtube#video') return;
+          const sn = item.snippet;
+          if(!sn || sn.resourceId.kind !== 'youtube#video') return;
           all.push({
             title: sn.title,
             videoId: sn.resourceId.videoId,
@@ -208,11 +203,15 @@
             publishedAt: sn.publishedAt || ''
           });
         });
-        pageToken=data.nextPageToken||'';
-      }while(pageToken);
 
+        pageToken = data.nextPageToken || '';
+      } while(pageToken);
+
+      // Ordena: mais recente primeiro, define destaque e lista
       all.sort((a,b)=>new Date(b.publishedAt)-new Date(a.publishedAt));
-      VIDEOS_ORIGINAIS=all;
+      VIDEOS_ORIGINAIS = all;
+
+      renderHero(VIDEOS_ORIGINAIS[0] || null);
       renderLista(VIDEOS_ORIGINAIS);
     }catch(e){
       console.error(e);
@@ -225,4 +224,5 @@
   await carregarVideos();
 })();
 </script>
+
 
