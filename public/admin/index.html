@@ -129,16 +129,26 @@ async function loadTab(file, btn){
     <button onclick="loadTab('/public/admin/partials/Aniversariantes.html', this)">Aniversariantes</button>
   </nav>
 
-  <main id="content">
-    <div id="loader">Carregando módulo padrão...</div>
+   <main id="view">
+    <!-- os partials carregam aqui -->
   </main>
 
   <script>
-    // Carrega a aba padrão ao abrir
-    window.addEventListener('DOMContentLoaded',()=>{
-      const first = document.querySelector('nav button.active');
-      loadTab('/public/admin/partials/FinanceiroView.html', first);
+    // mantém o highlight da aba ativa (admin.js pode também trocar essa classe)
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
     });
+
+    async function logout(){
+      try{ await fetch('/api/auth/logout.js',{method:'POST'}); }
+      finally{ window.location.href='/public/login.html'; }
+    }
   </script>
+
+  <!-- controlador das abas/partials -->
+  <script src="/public/admin/admin.js"></script>
 </body>
 </html>
