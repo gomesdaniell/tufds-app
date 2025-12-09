@@ -44,13 +44,7 @@
     <label for="nova">Nova senha</label>
     <input id="nova" name="nova" type="password" autocomplete="new-password" required />
 
-    <div class="actions">
-      <button id="btn" type="submit">Atualizar senha</button>
-      <span id="status" class="muted"></span>
-    </div>
-    <div id="msg" class=""></div>
-  </form>
-</div>
+<!-- ... resto do seu HTML ... -->
 
 <div class="actions">
   <button id="btnReset" type="button">Atualizar senha</button>
@@ -59,45 +53,50 @@
 </div>
 <div id="err" class="err"></div>
 
-  
+<!-- Coloque o script logo antes de fechar o body -->
 <script>
-const form = document.getElementById('resetForm');
-const btn  = document.getElementById('btn');
-const msg  = document.getElementById('msg');
-const st   = document.getElementById('status');
+const btnReset  = document.getElementById('btnReset');
+const btnVoltar = document.getElementById('btnVoltar');
+const out       = document.getElementById('status');
+const err       = document.getElementById('err');
 
-form.addEventListener('submit', async (ev) => {
+btnVoltar.addEventListener('click', () => {
+  window.location.href = '/public/login.html';
+});
+
+btnReset.addEventListener('click', async (ev) => {
   ev.preventDefault();
-  msg.textContent = '';
-  st.textContent = 'Verificando...';
-  btn.disabled = true;
+  err.textContent = '';
+  out.textContent = 'Enviando...';
+  btnReset.disabled = true;
 
-  const email = document.getElementById('email').value.trim();
-  const novaSenha = document.getElementById('nova').value;  // id do campo "Nova senha"
+  const email     = document.getElementById('email').value.trim();
+  const novaSenha = document.getElementById('novaSenha').value;
 
   try {
-    const res = await fetch('/api/auth/reset.js', {   // <--- AQUI o POST
+    const res = await fetch('/api/auth/reset.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, novaSenha })      // envia e-mail e senha
+      body: JSON.stringify({ email, novaSenha })
     });
+    const j = await res.json();
 
-    const data = await res.json().catch(()=>({}));
-    if (!res.ok || !data.ok) throw new Error(data?.message || 'Erro ao redefinir.');
+    if (!res.ok || !j.ok) throw new Error(j.message || 'Erro ao redefinir.');
 
-    msg.className = 'ok';
-    msg.textContent = '✅ Senha atualizada com sucesso! Você já pode fazer login.';
-    st.textContent = '';
+    out.textContent = '✅ Senha atualizada com sucesso.';
+    btnVoltar.style.display = 'inline-block'; // mostra o botão "Voltar ao login"
+
+    // bloqueia os campos após o sucesso
+    document.getElementById('email').readOnly = true;
+    document.getElementById('novaSenha').value = '';
+    document.getElementById('novaSenha').readOnly = true;
   } catch (e) {
-    msg.className = 'err';
-    msg.textContent = '❌ ' + (e.message || 'Falha na redefinição.');
-    st.textContent = '';
-  } finally {
-    btn.disabled = false;
+    err.textContent = '❌ ' + (e.message || 'Erro ao redefinir.');
+    out.textContent = '';
+    btnReset.disabled = false;
   }
 });
 </script>
-
 
 </body>
 </html>
