@@ -26,7 +26,8 @@
 </style>
 </head>
 <body>
-  <div class="container">
+  <!-- dê um id ao root para controlar init por partial -->
+  <div id="faltas-root" class="container">
     <h1>Controle de Faltas – TUFDS</h1>
 
     <label>Nome</label>
@@ -54,11 +55,17 @@
   </div>
 
 <script>
+(() => {
+  // vincula tudo ao root do partial e impede reinit duplicado
+  const ROOT = document.getElementById('faltas-root');
+  if (!ROOT || ROOT.dataset.inited === '1') return;
+  ROOT.dataset.inited = '1';
+
   let MOTIVOS = [];
   let NOMES = [];
   const MIN_OBS = 30;
 
-  const $ = (s) => document.querySelector(s);
+  const $ = (sel) => ROOT.querySelector(sel);
   function fmtCount(n){ return Math.max(0, n|0); }
 
   function renderMotivos() {
@@ -77,17 +84,18 @@
     });
   }
 
+  // contador de caracteres
   $('#observacao').addEventListener('input', (e) => {
     const n = e.target.value.replace(/\s+/g,' ').trim().length;
     $('#obsCount').textContent = fmtCount(n);
   });
 
-  // SUBMIT
+  // submit
   $('#enviar').addEventListener('click', async () => {
     const nome = $('#nome').value;
-    const dataAusencia = $('#dataAusencia').value;            // yyyy-mm-dd
+    const dataAusencia = $('#dataAusencia').value; // yyyy-mm-dd
     const observacao = $('#observacao').value.trim();
-    const motivos = Array.from(document.querySelectorAll('#motivosBox input[type=checkbox]:checked'))
+    const motivos = Array.from(ROOT.querySelectorAll('#motivosBox input[type=checkbox]:checked'))
       .map(ch => ch.value);
 
     if (!nome) return alert('Selecione o nome.');
@@ -113,20 +121,17 @@
       try { data = JSON.parse(raw); }
       catch { throw new Error(raw || 'Resposta não-JSON do servidor.'); }
 
-      if (!res.ok || !data.ok) {
-        throw new Error(data?.message || 'Falha ao salvar.');
-      }
+      if (!res.ok || !data.ok) throw new Error(data?.message || 'Falha ao salvar.');
 
       btn.disabled = false; btn.textContent = 'Registrar falta';
       msg.className = 'ok';
       msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${data.id || data.registroID || ''}`;
       msg.style.display = 'block';
 
-      // limpa campos
+      // limpa campos (mantém data)
       $('#observacao').value = '';
       $('#obsCount').textContent = '0';
-      document.querySelectorAll('#motivosBox input[type=checkbox]').forEach(ch => ch.checked = false);
-      // mantém a data do campo
+      ROOT.querySelectorAll('#motivosBox input[type=checkbox]').forEach(ch => ch.checked = false);
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Registrar falta';
       msg.className = 'err';
@@ -135,42 +140,37 @@
     }
   });
 
-  // INIT — roda imediatamente quando o partial é injetado
-  (async function __tufds_faltas_init(){
-    // evita rodar duas vezes se o loader reinserir o script
-    if (window.__tufds_faltas_init_ran) return;
-    window.__tufds_faltas_init_ran = true;
-
+  // init (roda uma única vez por carga do partial)
+  (async () => {
+    const msg = $('#msg');
     try {
-      const res = await fetch('/api/faltas/init.js');
-      const j = await res.json();
-
+      const r = await fetch('/api/faltas/init.js');
+      const j = await r.json();
       if (!j.ok) throw new Error(j.message || 'Erro ao carregar init');
 
       NOMES   = Array.isArray(j.nomes)   ? j.nomes   : [];
       MOTIVOS = Array.isArray(j.motivos) ? j.motivos : [];
 
-      // popula select de nomes
+      // popula nomes
       const sel = $('#nome');
       sel.innerHTML = '<option value="">Selecione...</option>' +
         NOMES.map(n => `<option>${n}</option>`).join('');
 
-      // renderiza motivos
+      // motivos
       renderMotivos();
 
-      // seta data de hoje (yyyy-mm-dd)
+      // data default
       if (j.hojeISO) {
         $('#dataAusencia').value = j.hojeISO;
         $('#dataAusencia').dataset.hoje = j.hojeISO;
       }
-    } catch (err) {
-      const msg = $('#msg');
+    } catch (e) {
       msg.className = 'err';
-      msg.textContent = '❌ Erro ao carregar dados iniciais: ' + (err.message || err);
+      msg.textContent = '❌ Erro ao carregar dados iniciais: ' + (e.message || e);
       msg.style.display = 'block';
     }
   })();
+})(); // fim IIFE vinculado ao partial
 </script>
 </body>
 </html>
-
