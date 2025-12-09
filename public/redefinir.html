@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Redefinir Senha • TUFDS</title>
+<style>
+  :root{ --accent:#0f766e; --muted:#6b7280; --border:#e5e7eb; }
+  body{
+    margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+    background:#f3f4f6; min-height:100vh; display:grid; place-items:center;
+  }
+  .card{
+    background:#fff; border:1px solid var(--border); border-radius:16px;
+    box-shadow:0 6px 20px rgba(0,0,0,.06);
+    width:min(420px, 92%); padding:24px;
+  }
+  h1{ margin:0 0 12px; color:#111827; font-size:22px }
+  p.muted{ color:var(--muted); margin:0 0 16px }
+  label{ display:block; font-weight:600; margin:14px 0 6px }
+  input{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
+    font-size:15px; outline:none;
+  }
+  .actions{ margin-top:18px; display:flex; gap:8px; align-items:center }
+  button{
+    background:var(--accent); color:#fff; border:0; border-radius:999px;
+    padding:10px 16px; font-size:15px; cursor:pointer;
+  }
+  .err{ color:#b91c1c; margin-top:10px; min-height:22px; }
+  .ok{ color:#15803d; margin-top:10px; min-height:22px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Redefinir Senha</h1>
+  <p class="muted">Digite seu e-mail e a nova senha.</p>
+
+  <form id="resetForm" novalidate>
+    <label for="email">E-mail cadastrado</label>
+    <input id="email" name="email" type="email" autocomplete="username" required />
+
+    <label for="nova">Nova senha</label>
+    <input id="nova" name="nova" type="password" autocomplete="new-password" required />
+
+    <div class="actions">
+      <button id="btn" type="submit">Atualizar senha</button>
+      <span id="status" class="muted"></span>
+    </div>
+    <div id="msg" class=""></div>
+  </form>
+</div>
+
+<script>
+const form = document.getElementById('resetForm');
+const btn  = document.getElementById('btn');
+const msg  = document.getElementById('msg');
+const st   = document.getElementById('status');
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  msg.textContent = '';
+  st.textContent = 'Verificando...';
+  btn.disabled = true;
+
+  const email = document.getElementById('email').value.trim();
+  const nova  = document.getElementById('nova').value;
+
+  try {
+    const res = await fetch('/api/auth/redefinir.js', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ email, nova })
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || !data.ok) throw new Error(data?.message || 'Erro ao redefinir.');
+
+    msg.className = 'ok';
+    msg.textContent = '✅ Senha atualizada com sucesso! Você já pode fazer login.';
+    st.textContent = '';
+  } catch(e) {
+    msg.className = 'err';
+    msg.textContent = '❌ ' + (e.message || 'Falha na redefinição.');
+    st.textContent = '';
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+
+</body>
+</html>
