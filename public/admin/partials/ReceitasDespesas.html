@@ -108,9 +108,8 @@
   async function init(){
     try {
       const res = await fetch('/api/finance/init.js', { cache: 'no-store' });
-;
       const data = await res.json();
-      if (!data.ok) throw new Error(data.message);
+      if (!data.ok) throw new Error(data.message || 'Falha no init');
 
       el('dataMovimento').value = data.hojeISO;
 
@@ -124,7 +123,7 @@
 
       $valor.addEventListener('input', formatBRLInput);
     } catch (err) {
-      showMsg(false, 'Erro ao carregar dados: ' + err.message);
+      showMsg(false, 'Erro ao carregar dados: ' + (err.message || err));
     }
   }
 
@@ -150,20 +149,26 @@
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!data.ok) throw new Error(data.message);
+      if (!data.ok) throw new Error(data.message || 'Falha ao salvar');
       showMsg(true, data.msg || 'Lançamento registrado!');
       ['descricao','valor'].forEach(i=>el(i).value='');
     } catch (err) {
-      showMsg(false, 'Erro ao salvar: ' + err.message);
+      showMsg(false, 'Erro ao salvar: ' + (err.message || err));
     } finally {
       $btn.disabled = false; $btn.textContent = 'Salvar Lançamento';
     }
   }
 
-  document.addEventListener('DOMContentLoaded', ()=>{
+  // ⚠️ Chama o setup imediatamente (partials são injetados após DOM pronto)
+  function setup(){
     init();
     $btn.addEventListener('click', salvar);
-  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
 </script>
 </body>
 </html>
