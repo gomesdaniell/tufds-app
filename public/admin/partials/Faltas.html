@@ -1,1 +1,180 @@
+<!-- /public/admin/partials/Faltas.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Controle de Faltas – TUFDS</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f8f9fb;
+    margin: 0;
+    color: #333;
+  }
+  .container {
+    max-width: 820px;
+    margin: 28px auto;
+    background: #fff;
+    padding: 26px;
+    border-radius: 16px;
+    box-shadow: 0 0 10px rgba(0,0,0,.08);
+  }
+  h1 { margin: 0 0 14px; color:#0f766e; }
+  label { font-weight:700; display:block; margin:10px 0 6px }
+  select, input[type=date], textarea {
+    width:100%; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:14px
+  }
+  .row { display:flex; gap:12px; flex-wrap:wrap }
+  .row>* { flex:1 1 240px }
+  .motivos { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; margin-top:8px }
+  .motivo { display:flex; align-items:center; gap:8px; background:#fafafa; border:1px solid #eee; border-radius:8px; padding:8px }
+  textarea { min-height:110px }
+  .hint { font-size:12px; color:#666 }
+  .counter { font-size:12px; color:#666; text-align:right; margin-top:4px }
+  .actions { display:flex; justify-content:flex-end; margin-top:14px }
+  button {
+    background:#0f766e; color:#fff; border:0; padding:10px 18px;
+    border-radius:8px; cursor:pointer; font-weight:700; transition:0.2s;
+  }
+  button:hover { background:#0d5f57 }
+  #msg {
+    display:none; margin-top:12px; padding:10px; border-radius:8px;
+    text-align:center; font-weight:700;
+  }
+  #msg.ok { background:#e8f5e9; color:#256029 }
+  #msg.err { background:#fdecea; color:#a12721 }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Controle de Faltas – TUFDS</h1>
+
+    <label for="nome">Nome</label>
+    <select id="nome"></select>
+
+    <div class="row">
+      <div>
+        <label for="dataAusencia">Data da ausência</label>
+        <input type="date" id="dataAusencia"/>
+      </div>
+    </div>
+
+    <label>Motivos (selecione os que se aplicam)</label>
+    <div id="motivosBox" class="motivos"></div>
+
+    <label for="observacao">Observação detalhada (obrigatória)</label>
+    <textarea id="observacao"
+      placeholder="Explique detalhadamente o motivo, contexto, se avisou liderança, previsão de retorno, etc. (mín. 30 caracteres)">
+    </textarea>
+    <div class="counter"><span id="obsCount">0</span> / 30 mínimo</div>
+
+    <div class="actions">
+      <button id="enviar">Registrar falta</button>
+    </div>
+
+    <div id="msg"></div>
+  </div>
+
+<script>
+  let MOTIVOS = [];
+  let NOMES = [];
+  const MIN_OBS = 30;
+
+  // contador de caracteres da observação
+  document.getElementById('observacao').addEventListener('input', (e) => {
+    const n = e.target.value.replace(/\s+/g, ' ').trim().length;
+    document.getElementById('obsCount').textContent = Math.max(0, n|0);
+  });
+
+  function renderMotivos() {
+    const box = document.getElementById('motivosBox');
+    box.innerHTML = '';
+    const listaFinal = MOTIVOS.includes('Outros') ? MOTIVOS : [...MOTIVOS, 'Outros'];
+    listaFinal.forEach((m, idx) => {
+      const id = 'mot_' + idx;
+      const div = document.createElement('div');
+      div.className = 'motivo';
+      div.innerHTML = `
+        <input type="checkbox" id="${id}" value="${m}">
+        <label for="${id}">${m}</label>
+      `;
+      box.appendChild(div);
+    });
+  }
+
+  // inicialização
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const res = await fetch('/api/faltas/init.js');
+      const data = await res.json();
+      if (!data.ok) throw new Error('Erro ao carregar dados iniciais.');
+
+      const sel = document.getElementById('nome');
+      sel.innerHTML = '<option value="">Selecione...</option>' +
+        data.nomes.map(n => `<option>${n}</option>`).join('');
+
+      MOTIVOS = data.motivos || [];
+      renderMotivos();
+
+      const dt = document.getElementById('dataAusencia');
+      dt.value = data.hojeISO;
+      dt.dataset.hoje = data.hojeISO;
+
+    } catch (err) {
+      alert('Erro ao inicializar: ' + err.message);
+    }
+  });
+
+  // envio
+  document.getElementById('enviar').addEventListener('click', async () => {
+    const nome = document.getElementById('nome').value;
+    const dataAusencia = document.getElementById('dataAusencia').value;
+    const observacao = document.getElementById('observacao').value.trim();
+    const motivos = Array.from(document.querySelectorAll('#motivosBox input[type=checkbox]:checked'))
+      .map(ch => ch.value);
+
+    if (!nome) return alert('Selecione o nome.');
+    if (!dataAusencia) return alert('Informe a data da ausência.');
+    if (observacao.replace(/\s+/g, ' ').trim().length < MIN_OBS)
+      return alert('A observação precisa ter, no mínimo, 30 caracteres.');
+
+    const payload = { nome, dataAusencia, motivos, observacao };
+    const btn = document.getElementById('enviar');
+    const msg = document.getElementById('msg');
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+    msg.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/faltas/salvar.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        msg.className = 'ok';
+        msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${data.registroID}`;
+        msg.style.display = 'block';
+        document.getElementById('dataAusencia').value = document.getElementById('dataAusencia').dataset.hoje || '';
+        document.getElementById('observacao').value = '';
+        document.getElementById('obsCount').textContent = '0';
+        document.querySelectorAll('#motivosBox input[type=checkbox]').forEach(ch => ch.checked = false);
+      } else {
+        throw new Error(data.message || 'Erro ao registrar falta.');
+      }
+    } catch (err) {
+      msg.className = 'err';
+      msg.textContent = '❌ ' + err.message;
+      msg.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Registrar falta';
+    }
+  });
+</script>
+</body>
+</html>
 
