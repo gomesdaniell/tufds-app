@@ -3,20 +3,15 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Controle de Faltas – TUFDS</title>
+<title>Marcação de Presença – TUFDS</title>
 <style>
   body{font-family:Arial,sans-serif;background:#f8f9fb;margin:0;color:#333}
   .container{max-width:820px;margin:28px auto;background:#fff;padding:26px;border-radius:16px;box-shadow:0 0 10px rgba(0,0,0,.08)}
   h1{margin:0 0 14px}
   label{font-weight:700;display:block;margin:10px 0 6px}
-  select,input[type=date],textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px}
+  select,input[type=date]{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px}
   .row{display:flex;gap:12px;flex-wrap:wrap}
   .row>*{flex:1 1 240px}
-  .motivos{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-top:8px}
-  .motivo{display:flex;align-items:center;gap:8px;background:#fafafa;border:1px solid #eee;border-radius:8px;padding:8px}
-  textarea{min-height:110px}
-  .hint{font-size:12px;color:#666}
-  .counter{font-size:12px;color:#666;text-align:right;margin-top:4px}
   .actions{display:flex;justify-content:flex-end;margin-top:14px}
   button{background:#111827;color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:700}
   button:hover{background:#333}
@@ -26,29 +21,21 @@
 </style>
 </head>
 <body>
-  <!-- dê um id ao root para controlar init por partial -->
   <div id="faltas-root" class="container">
-    <h1>Controle de Faltas – TUFDS</h1>
+    <h1>Marcação de Presença – TUFDS</h1>
 
     <label>Nome</label>
     <select id="nome"></select>
 
     <div class="row">
       <div>
-        <label>Data da ausência</label>
+        <label>Data da presença</label>
         <input type="date" id="dataAusencia"/>
       </div>
     </div>
 
-    <label>Motivos (selecione os que se aplicam)</label>
-    <div id="motivosBox" class="motivos"></div>
-
-    <label>Observação detalhada (obrigatória)</label>
-    <textarea id="observacao" placeholder="Explique detalhadamente o motivo, contexto, se avisou liderança, previsão de retorno, etc. (mín. 30 caracteres)"></textarea>
-    <div class="counter"><span id="obsCount">0</span> / 30 mínimo</div>
-
     <div class="actions">
-      <button id="enviar">Registrar falta</button>
+      <button id="enviar">Registrar presença</button>
     </div>
 
     <div id="msg"></div>
@@ -56,55 +43,21 @@
 
 <script>
 (() => {
-  // vincula tudo ao root do partial e impede reinit duplicado
   const ROOT = document.getElementById('faltas-root');
   if (!ROOT || ROOT.dataset.inited === '1') return;
   ROOT.dataset.inited = '1';
 
-  let MOTIVOS = [];
   let NOMES = [];
-  const MIN_OBS = 30;
-
   const $ = (sel) => ROOT.querySelector(sel);
-  function fmtCount(n){ return Math.max(0, n|0); }
 
-  function renderMotivos() {
-    const box = $('#motivosBox');
-    box.innerHTML = '';
-    const listaFinal = MOTIVOS.includes('Outros') ? MOTIVOS : [...MOTIVOS, 'Outros'];
-    listaFinal.forEach((m, idx) => {
-      const id = 'mot_' + idx;
-      const div = document.createElement('div');
-      div.className = 'motivo';
-      div.innerHTML = `
-        <input type="checkbox" id="${id}" value="${m}">
-        <label for="${id}">${m}</label>
-      `;
-      box.appendChild(div);
-    });
-  }
-
-  // contador de caracteres
-  $('#observacao').addEventListener('input', (e) => {
-    const n = e.target.value.replace(/\s+/g,' ').trim().length;
-    $('#obsCount').textContent = fmtCount(n);
-  });
-
-  // submit
   $('#enviar').addEventListener('click', async () => {
     const nome = $('#nome').value;
-    const dataAusencia = $('#dataAusencia').value; // yyyy-mm-dd
-    const observacao = $('#observacao').value.trim();
-    const motivos = Array.from(ROOT.querySelectorAll('#motivosBox input[type=checkbox]:checked'))
-      .map(ch => ch.value);
+    const dataAusencia = $('#dataAusencia').value; 
 
     if (!nome) return alert('Selecione o nome.');
     if (!dataAusencia) return alert('Informe a data da ausência.');
-    if (observacao.replace(/\s+/g,' ').trim().length < MIN_OBS) {
-      return alert('A observação precisa ter, no mínimo, 30 caracteres.');
-    }
 
-    const payload = { nome, dataAusencia, motivos, observacao };
+    const payload = { nome, dataAusencia };
     const btn = $('#enviar'), msg = $('#msg');
     btn.disabled = true; btn.textContent = 'Enviando...';
     msg.style.display = 'none'; msg.className = ''; msg.textContent = '';
@@ -127,11 +80,6 @@
       msg.className = 'ok';
       msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${data.id || data.registroID || ''}`;
       msg.style.display = 'block';
-
-      // limpa campos (mantém data)
-      $('#observacao').value = '';
-      $('#obsCount').textContent = '0';
-      ROOT.querySelectorAll('#motivosBox input[type=checkbox]').forEach(ch => ch.checked = false);
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Registrar falta';
       msg.className = 'err';
@@ -140,7 +88,6 @@
     }
   });
 
-  // init (roda uma única vez por carga do partial)
   (async () => {
     const msg = $('#msg');
     try {
@@ -148,18 +95,12 @@
       const j = await r.json();
       if (!j.ok) throw new Error(j.message || 'Erro ao carregar init');
 
-      NOMES   = Array.isArray(j.nomes)   ? j.nomes   : [];
-      MOTIVOS = Array.isArray(j.motivos) ? j.motivos : [];
+      NOMES = Array.isArray(j.nomes) ? j.nomes : [];
 
-      // popula nomes
       const sel = $('#nome');
       sel.innerHTML = '<option value="">Selecione...</option>' +
         NOMES.map(n => `<option>${n}</option>`).join('');
 
-      // motivos
-      renderMotivos();
-
-      // data default
       if (j.hojeISO) {
         $('#dataAusencia').value = j.hojeISO;
         $('#dataAusencia').dataset.hoje = j.hojeISO;
@@ -170,7 +111,7 @@
       msg.style.display = 'block';
     }
   })();
-})(); // fim IIFE vinculado ao partial
+})();
 </script>
 </body>
 </html>
