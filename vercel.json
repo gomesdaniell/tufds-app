@@ -1,17 +1,12 @@
-{{
+{
   "version": 2,
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "public/**/*", "use": "@vercel/static" },
     { "src": "api/**/*.js", "use": "@vercel/node" }
   ],
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs24.x"
-    }
-  },
   "routes": [
-    { "src": "^/$", "dest": "/index.html" },
+    { "src": "/", "dest": "/index.html" },
     { "src": "/(.*)", "dest": "/$1" }
   ],
   "crons": [
