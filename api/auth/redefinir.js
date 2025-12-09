@@ -1,61 +1,85 @@
-// /api/auth/redefinir.js
-import { google } from 'googleapis';
+// /api/auth/reset.js
+import crypto from "crypto";
+import { google } from "googleapis";
 
-const {
-  GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  GOOGLE_PRIVATE_KEY,
-  PLANILHA_ID,
-  ABA_CADASTRO = 'Cadastro'
-} = process.env;
+const SHEET_ID = process.env.GOOGLE_SHEETS_ID;     // ID da planilha (o mesmo da TUFDS)
+const ABA_CADASTRO = "Cadastro";                   // nome da aba
+
+// Colunas fixas que você pediu:
+const COL_EMAIL = "F";     // E-mail
+const COL_HASH  = "AC";    // SENHA_HASH
+
+function letterToIndex(letter) {
+  // 'A' => 1, 'Z' => 26, 'AA' => 27, 'AC' => 29 ...
+  let n = 0;
+  for (const ch of letter.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n; // 1-based
+}
+
+function sha256Hex(str) {
+  return crypto.createHash("sha256").update(str, "utf8").digest("hex");
+}
+
+async function getSheetsClient() {
+  const jwt = new google.auth.JWT({
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    key: (process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+  await jwt.authorize();
+  return google.sheets({ version: "v4", auth: jwt });
+}
 
 export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, message: "Method not allowed" });
+  }
+
   try {
-    if (req.method !== 'POST')
-      return res.status(405).json({ ok:false, message:'Method not allowed' });
+    const { email, novaSenha } = req.body || {};
+    if (!email || !novaSenha) {
+      return res.status(400).json({ ok: false, message: "Informe e-mail e nova senha." });
+    }
 
-    const { email, nova } = req.body || {};
-    if (!email || !nova)
-      return res.status(400).json({ ok:false, message:'E-mail e nova senha são obrigatórios' });
+    const sheets = await getSheetsClient();
 
-    const auth = new google.auth.JWT(
-      GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      null,
-      GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-      ['https://www.googleapis.com/auth/spreadsheets']
-    );
-    const sheets = google.sheets({ version:'v4', auth });
-
-    // Lê a planilha completa
-    const { data } = await sheets.spreadsheets.values.get({
-      spreadsheetId: PLANILHA_ID,
-      range: `${ABA_CADASTRO}!A:Z`
+    // 1) Buscar toda a coluna F (emails) a partir da linha 2
+    const rangeEmails = `${ABA_CADASTRO}!${COL_EMAIL}2:${COL_EMAIL}`;
+    const respEmails = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: rangeEmails,
+      majorDimension: "COLUMNS",
     });
-    const values = data.values || [];
-    if (values.length < 2)
-      return res.status(404).json({ ok:false, message:'Base vazia' });
 
-    const header = values[0].map(h => String(h).trim().toLowerCase());
-    const idxEmail = header.findIndex(h => h.includes('email'));
-    const idxSenha = header.findIndex(h => h.includes('senha'));
+    const colValues = (respEmails.data.values && respEmails.data.values[0]) || [];
+    // Encontrar linha do e-mail (case-insensitive, trim)
+    const alvo = String(email).trim().toLowerCase();
+    let foundRow = -1; // linha absoluta na planilha (1-based)
+    for (let i = 0; i < colValues.length; i++) {
+      const cell = String(colValues[i] || "").trim().toLowerCase();
+      if (cell === alvo) {
+        foundRow = i + 2; // +2 pois começamos em F2
+        break;
+      }
+    }
 
-    if (idxEmail < 0 || idxSenha < 0)
-      return res.status(400).json({ ok:false, message:'Colunas de e-mail/senha não encontradas' });
+    if (foundRow < 0) {
+      return res.status(404).json({ ok: false, message: "E-mail não encontrado na aba Cadastro." });
+    }
 
-    const row = values.findIndex((r,i)=> i>0 && String(r[idxEmail]||'').trim().toLowerCase() === email.toLowerCase());
-    if (row < 0)
-      return res.status(404).json({ ok:false, message:'E-mail não encontrado no cadastro' });
-
-    // Atualiza a senha na linha correspondente (row começa em 0; somar 1)
+    // 2) Gravar o hash da nova senha na coluna AC da mesma linha
+    const hash = sha256Hex(novaSenha);
+    const rangeDestino = `${ABA_CADASTRO}!${COL_HASH}${foundRow}:${COL_HASH}${foundRow}`;
     await sheets.spreadsheets.values.update({
-      spreadsheetId: PLANILHA_ID,
-      range: `${ABA_CADASTRO}!${String.fromCharCode(65+idxSenha)}${row+1}`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [[nova]] }
+      spreadsheetId: SHEET_ID,
+      range: rangeDestino,
+      valueInputOption: "RAW",
+      requestBody: { values: [[hash]] },
     });
 
-    return res.status(200).json({ ok:true });
+    return res.status(200).json({ ok: true, message: "Senha atualizada com sucesso." });
   } catch (e) {
-    console.error(e);
-    return res.status(500).json({ ok:false, message:e.message || 'Erro ao redefinir senha' });
+    console.error("[reset.js] erro:", e);
+    return res.status(500).json({ ok: false, message: e?.message || "Falha ao redefinir senha." });
   }
 }
