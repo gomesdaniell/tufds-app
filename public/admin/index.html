@@ -120,14 +120,15 @@ async function loadTab(file, btn){
     </div>
   </header>
 
-  <nav>
-    <button class="active" onclick="loadTab('/public/admin/partials/FinanceiroView.html', this)">Transparência Financeira</button>
-    <button onclick="loadTab('/public/admin/partials/Presencas.html', this)">Registro de Presenças</button>
-    <button onclick="loadTab('/public/admin/partials/Faltas.html', this)">Controle de Faltas</button>
-    <button onclick="loadTab('/public/admin/partials/Aulas.html', this)">Aulas de Desenvolvimento</button>
-    <button onclick="loadTab('/public/admin/partials/Desenvolvimento.html', this)">Desenvolvimento Individual</button>
-    <button onclick="loadTab('/public/admin/partials/Aniversariantes.html', this)">Aniversariantes</button>
-  </nav>
+ <nav class="tabs" id="tabs">
+  <button data-file="/public/admin/partials/FinanceiroView.html" data-default>Transparência Financeira</button>
+  <button data-file="/public/admin/partials/Presencas.html">Registro de Presenças</button>
+  <button data-file="/public/admin/partials/Faltas.html">Controle de Faltas</button>
+  <button data-file="/public/admin/partials/Aulas.html">Aulas de Desenvolvimento</button>
+  <button data-file="/public/admin/partials/Desenvolvimento.html">Desenvolvimento Individual</button>
+  <button data-file="/public/admin/partials/Aniversariantes.html">Aniversariantes</button>
+</nav>
+
 
    <main id="view">
     <!-- os partials carregam aqui -->
@@ -150,71 +151,83 @@ async function loadTab(file, btn){
 
   <!-- controlador das abas/partials -->
    <script>
-    // logout padrão
-    async function logout() {
-      try { await fetch('/api/auth/logout.js', { method: 'POST' }); }
-      finally { window.location.href = '/public/login.html'; }
+  // garante sessão; não altera estilo
+  (async () => {
+    try {
+      const r = await fetch('/api/auth/me.js');
+      const j = await r.json();
+      if (!j.ok) throw 0;
+      document.querySelector('.user-name')?.replaceChildren(document.createTextNode(j.user?.nome || j.user?.email || 'Usuário'));
+    } catch {
+      window.location.href = '/public/login.html';
     }
+  })();
 
-    // carrega o conteúdo da aba (mantendo active correto)
-    async function loadTab(file, btn) {
-      const main = document.querySelector('#view');
-      main.innerHTML = '<div style="text-align:center;padding:40px;color:#666">Carregando...</div>';
+  async function logout() {
+    try { await fetch('/api/auth/logout.js', { method: 'POST' }); }
+    finally { window.location.href = '/public/login.html'; }
+  }
 
-      // atualiza botões ativos
-      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
+  const nav = document.getElementById('tabs');
+  const main = document.getElementById('view');
+  let activeBtn = null;
 
-      try {
-        const res = await fetch(file);
-        if (!res.ok) throw new Error('Erro ao carregar página');
-        const html = await res.text();
-        main.innerHTML = html;
+  function setActive(btn) {
+    if (activeBtn === btn) return;
+    nav.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeBtn = btn;
+  }
 
-        // reexecuta scripts internos do partial
-        main.querySelectorAll("script").forEach(oldScript => {
-          const newScript = document.createElement("script");
-          if (oldScript.src) newScript.src = oldScript.src;
-          else newScript.textContent = oldScript.textContent;
-          document.body.appendChild(newScript);
-          oldScript.remove();
-        });
-      } catch (err) {
-        main.innerHTML = `<p style="color:#b91c1c;text-align:center">Falha ao carregar: ${err.message}</p>`;
-      }
-    }
-
-    // inicialização sincronizada com o botão ativo
-    window.addEventListener('DOMContentLoaded', () => {
-      const active = document.querySelector('nav.tabs button.active');
-      if (active) {
-        const defaultFile = {
-          'Transparência Financeira': '/public/admin/partials/FinanceiroView.html',
-          'Registro de Presenças': '/public/admin/partials/Presencas.html',
-          'Controle de Faltas': '/public/admin/partials/Faltas.html',
-          'Aulas de Desenvolvimento': '/public/admin/partials/Aulas.html',
-          'Desenvolvimento Individual': '/public/admin/partials/Desenvolvimento.html',
-          'Aniversariantes': '/public/admin/partials/Aniversariantes.html'
-        }[active.textContent.trim()] || '/public/admin/partials/FinanceiroView.html';
-        loadTab(defaultFile, active);
-      }
-
-      // registra os cliques nas abas
-      document.querySelectorAll('nav.tabs button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const file = {
-            'Transparência Financeira': '/public/admin/partials/FinanceiroView.html',
-            'Registro de Presenças': '/public/admin/partials/Presencas.html',
-            'Controle de Faltas': '/public/admin/partials/Faltas.html',
-            'Aulas de Desenvolvimento': '/public/admin/partials/Aulas.html',
-            'Desenvolvimento Individual': '/public/admin/partials/Desenvolvimento.html',
-            'Aniversariantes': '/public/admin/partials/Aniversariantes.html'
-          }[btn.textContent.trim()];
-          if (file) loadTab(file, btn);
-        });
-      });
+  // Executa scripts embutidos do partial
+  function executeInlineScripts(container) {
+    container.querySelectorAll('script').forEach(oldS => {
+      const s = document.createElement('script');
+      if (oldS.src) s.src = oldS.src;
+      else s.textContent = oldS.textContent;
+      document.body.appendChild(s);
+      oldS.remove();
     });
-  </script>
+  }
+
+  async function loadTab(btn) {
+    const file = btn.getAttribute('data-file');
+    if (!file) return;
+    setActive(btn);
+    main.innerHTML = '<div style="padding:24px;color:#6b7280;">Carregando…</div>';
+
+    try {
+      const res = await fetch(file, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Falha ao carregar');
+      const html = await res.text();
+      main.innerHTML = html;
+      executeInlineScripts(main);
+      // guarda “qual está aberto” (evita reprocessar no primeiro clique)
+      main.dataset.current = file;
+    } catch (e) {
+      main.innerHTML = '<div style="padding:24px;color:#b91c1c;">Não foi possível carregar o módulo.</div>';
+    }
+  }
+
+  // Delegação de cliques nas abas
+  nav.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('button[data-file]');
+    if (!btn) return;
+    // evita re-carregar se já estiver nessa
+    if (main.dataset.current === btn.getAttribute('data-file')) {
+      setActive(btn);
+      return;
+    }
+    loadTab(btn);
+  });
+
+  // Carrega a aba padrão ao abrir (Transparência)
+  window.addEventListener('DOMContentLoaded', () => {
+    const first = nav.querySelector('button[data-default]') || nav.querySelector('button[data-file]');
+    if (first) loadTab(first);
+  });
+</script>
+
 
 </body>
 </html>
