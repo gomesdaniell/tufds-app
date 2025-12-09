@@ -60,17 +60,11 @@
   const LON_TERREIRO = -59.99540507934922;
   const RAIO_MAX_METROS = 300;
 
-  const elNome   = document.getElementById('nome');
-  const elObs    = document.getElementById('obs');
-  const elMsg    = document.getElementById('msg');
-  const btnEnviar= document.getElementById('btnEnviar');
-  const geoStatus= document.getElementById('geoStatus');
-  const btnGeo   = document.getElementById('btnGeo');
-  const btnRetry = document.getElementById('btnRetry');
-  const geoHint  = document.getElementById('geoHint');
-
-  let lastLat = null, lastLon = null;
-  let watchId = null;
+  const elNome    = document.getElementById('nome');
+  const elObs     = document.getElementById('obs');
+  const btnEnviar = document.getElementById('btnEnviar');
+  const geoStatus = document.getElementById('geoStatus');
+  const elMsg     = document.getElementById('msg');
 
   function showMsg(ok, text){
     elMsg.className = ok ? 'ok' : 'err';
@@ -78,141 +72,109 @@
     elMsg.style.display = 'block';
     if (ok) setTimeout(()=> elMsg.style.display='none', 4000);
   }
-  function toRad(g){ return g * Math.PI / 180; }
+
+  // Haversine
+  const toRad = g => g * Math.PI / 180;
   function distanciaEmMetros(lat1, lon1, lat2, lon2){
     const R = 6371000;
-    const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(toRad(lat1))*Math.cos(toRad(lat2)) *
+              Math.sin(dLon/2)**2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   }
+
   function habilitarFormulario(msgOk){
     elNome.disabled = false;
     elObs.disabled = false;
     btnEnviar.disabled = false;
     geoStatus.textContent = msgOk;
     geoStatus.className = 'muted ok';
-    btnRetry.style.display = 'none';
   }
-  function bloquearFormulario(msgErro, showRetry=true){
+  function bloquearFormulario(msgErro){
     elNome.disabled = true;
     elObs.disabled = true;
     btnEnviar.disabled = true;
     geoStatus.textContent = msgErro;
     geoStatus.className = 'muted err';
-    if (showRetry) btnRetry.style.display = 'inline-block';
   }
 
-  // Solicita geolocalização somente após gesto do usuário
-  async function requestLocation(){
-    btnGeo.disabled = true;
-    btnRetry.style.display = 'none';
-    geoHint.textContent = '';
-
-    if (!('geolocation' in navigator)){
-      bloquearFormulario('Seu dispositivo não oferece geolocalização.');
-      btnGeo.disabled = false;
-      return;
-    }
-
-    // Tentativa 1: getCurrentPosition com alta precisão
-    let settled = false;
-    const opts = { enableHighAccuracy:true, timeout:12000, maximumAge: 15000 };
-
-    const onSuccess = (pos) => {
-      if (settled) return; settled = true;
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      const lat = pos.coords.latitude, lon = pos.coords.longitude;
-      lastLat = lat; lastLon = lon;
-      const dist = distanciaEmMetros(lat, lon, LAT_TERREIRO, LON_TERREIRO);
-      if (dist <= RAIO_MAX_METROS){
-        habilitarFormulario(`✅ Localização confirmada. Distância aproximada: ${dist.toFixed(0)}m do terreiro.`);
-      } else {
-        bloquearFormulario('❌ Você está distante do terreiro. A presença só pode ser registrada no local.');
-      }
-      btnGeo.disabled = false;
-    };
-
-    const onError = (err) => {
-      if (settled) return;
-      console.warn('getCurrentPosition erro:', err);
-      // Se negar permissão, mostra instrução
-      if (err && err.code === 1){ // PERMISSION_DENIED
-        bloquearFormulario('Permissão negada. Ative a localização do navegador e volte.', false);
-        geoHint.textContent = 'No Android/Chrome: Cadeado → Permissões → Localização → Permitir.';
-        btnGeo.disabled = false;
-        return;
-      }
-      // Fallback 2: watchPosition (muitos aparelhos entregam mais rápido)
-      geoHint.textContent = 'Tentando localização alternativa…';
-      watchId = navigator.geolocation.watchPosition(onSuccess, (e2)=>{
-        console.warn('watchPosition erro:', e2);
-        bloquearFormulario('Não foi possível obter sua localização. Ative o GPS e tente novamente.');
-        btnGeo.disabled = false;
-      }, { enableHighAccuracy:true, maximumAge: 0, timeout: 20000 });
-      // Cancela o watch após 20s para não ficar eterno
-      setTimeout(()=>{
-        if (!settled && watchId){
-          navigator.geolocation.clearWatch(watchId);
-          bloquearFormulario('Tempo esgotado para obter localização. Tente novamente.');
-          btnGeo.disabled = false;
-        }
-      }, 20000);
-    };
-
-    navigator.geolocation.getCurrentPosition(onSuccess, onError, opts);
-  }
-
-  // Carrega nomes (ativos) do backend
   async function carregarNomes(){
     try{
-      const res = await fetch('/api/presencas/init.js');
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.message || 'Falha ao carregar nomes.');
-      elNome.innerHTML = '<option value="">Selecione...</option>' + (j.nomes||[]).map(n=>`<option>${n}</option>`).join('');
-    }catch(e){
-      showMsg(false, 'Erro ao carregar nomes: ' + e.message);
+      // CHANGED: reaproveita o init de Faltas, que já lê a aba Cadastro
+      const r = await fetch('/api/faltas/init.js');     // <<<<< CHANGED
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || 'Falha ao carregar nomes');
+
+      const nomes = j.nomes || [];
+      elNome.innerHTML = '<option value="">Selecione...</option>' +
+        nomes.map(n => `<option>${n}</option>`).join('');
+    }catch(err){
+      showMsg(false, 'Erro ao carregar nomes: ' + (err?.message || err));
     }
   }
 
-  // Envia presença
-  document.getElementById('btnEnviar').addEventListener('click', async ()=>{
+  function solicitarLocalizacao(){
+    if (!navigator.geolocation){
+      bloquearFormulario('Seu dispositivo não permite localização.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const dist = distanciaEmMetros(lat, lon, LAT_TERREIRO, LON_TERREIRO);
+
+        if (dist <= RAIO_MAX_METROS){
+          habilitarFormulario(`✅ Localização confirmada (~${dist.toFixed(0)}m)`);
+        } else {
+          bloquearFormulario('❌ Você está fora do perímetro do terreiro.');
+        }
+      },
+      err => {
+        console.error(err);
+        bloquearFormulario('❌ Não foi possível obter sua localização.');
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
+
+  // envio simplificado: só nome + observação (seu endpoint atual)
+  btnEnviar.addEventListener('click', async () => {
     const nome = (elNome.value || '').trim();
     const observacao = (elObs.value || '').trim();
-    if (!nome) return showMsg(false, 'Selecione o seu nome.');
+    if (!nome) return showMsg(false, 'Selecione seu nome.');
 
     btnEnviar.disabled = true; btnEnviar.textContent = 'Enviando...';
     elMsg.style.display = 'none';
 
     try{
-      const res = await fetch('/api/presencas/salvar.js', {
+      // CHANGED: use o mesmo endpoint que você já tem para salvar presença
+      const r = await fetch('/api/presencas/salvar.js', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ nome, observacao, lat:lastLat, lon:lastLon })
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ nome, observacao })
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data?.message || 'Falha ao salvar.');
-
-      btnEnviar.disabled = false; btnEnviar.textContent = 'Registrar Presença';
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.message || 'Falha ao registrar');
       showMsg(true, '✅ Presença registrada com sucesso.');
       elObs.value = '';
-    }catch(e){
+    }catch(err){
+      showMsg(false, '❌ ' + (err?.message || err));
+    }finally{
       btnEnviar.disabled = false; btnEnviar.textContent = 'Registrar Presença';
-      showMsg(false, '❌ ' + e.message);
     }
   });
 
-  // Botões de controle
-  btnGeo.addEventListener('click', requestLocation);
-  btnRetry.addEventListener('click', requestLocation);
-
-  // Inicialização
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // dica se não estiver em contexto seguro (HTTP bloqueia geolocalização)
-    if (location.protocol !== 'https:'){
-      geoHint.textContent = 'Observação: geolocalização pode não funcionar fora de HTTPS.';
-    }
+  document.addEventListener('DOMContentLoaded', () => {
+    // carrega nomes independente do GPS,
+    // mas só habilita o formulário após a validação da localização
     carregarNomes();
+    solicitarLocalizacao();
   });
 </script>
+
 </body>
 </html>
