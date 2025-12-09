@@ -5,70 +5,151 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Painel Interno – TUFDS</title>
 <style>
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto;
-    background: #f3f4f6;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+  :root{
+    --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280;
+    --border:#e5e7eb; --accent:#0f766e; --accent-2:#0d5f57;
   }
-  .card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    padding: 32px;
-    max-width: 400px;
-    text-align: center;
+  *{ box-sizing:border-box }
+  body{
+    margin:0; font-family:system-ui,-apple-system, Segoe UI, Roboto;
+    background:var(--bg); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
   }
-  h1 {
-    margin: 0 0 16px;
-    color: #0f766e;
+  .wrap{ width:min(1100px, 96%); }
+  .top{
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;
   }
-  button {
-    background: #0f766e;
-    color: #fff;
-    border: none;
-    border-radius: 999px;
-    padding: 10px 20px;
-    font-size: 15px;
-    cursor: pointer;
+  .title{ margin:0; color:var(--accent); font-size:26px }
+  .hello{ margin:4px 0 0; color:var(--muted) }
+  .logout{ background:var(--accent); color:#fff; border:0; border-radius:999px; padding:8px 14px; cursor:pointer; }
+  .logout:hover{ background:var(--accent-2) }
+
+  .grid{
+    display:grid; gap:16px;
+    grid-template-columns: repeat(3, 1fr);
   }
-  button:hover {
-    background: #0d5f57;
+  @media (max-width: 880px){ .grid{ grid-template-columns: repeat(2, 1fr) } }
+  @media (max-width: 560px){ .grid{ grid-template-columns: 1fr } }
+
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:16px;
+    box-shadow:0 2px 8px rgba(0,0,0,.05); padding:18px; display:flex; gap:12px; align-items:center;
+    cursor:pointer; transition:transform .06s ease, background .15s ease;
   }
-  p {
-    color: #374151;
+  .card:hover{ background:#fafafa; transform:translateY(-1px) }
+  .icon{
+    width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-size:22px; background:#ecfdf5; color:#065f46;
   }
+  .card h3{ margin:0 0 4px; font-size:18px; color:var(--text) }
+  .card p{ margin:0; color:var(--muted); font-size:14px }
+  .disabled{ opacity:.6; cursor:not-allowed; }
+  .disabled:hover{ transform:none; background:var(--card) }
 </style>
+
 <script>
 (async () => {
+  // Valida sessão; se não estiver logado, volta pro login
   try {
     const res = await fetch('/api/auth/me.js');
     const data = await res.json();
     if (!data.ok) throw new Error();
-
     document.getElementById('user-name').textContent = data.user.nome || data.user.email;
-    document.body.classList.add('auth-ok');
-  } catch (e) {
+  } catch {
     window.location.href = '/public/login.html';
   }
 })();
 
-async function sair() {
-  await fetch('/api/auth/logout.js', { method: 'POST' });
-  window.location.href = '/index.html';
+async function sair(){
+  try { await fetch('/api/auth/logout.js', { method:'POST' }); } finally {
+    window.location.href = '/public/login.html';
+  }
+}
+
+// Navegação dos cards
+function go(url, disabled=false){
+  if (disabled) return;
+  window.location.href = url;
 }
 </script>
 </head>
 <body>
-  <div class="card">
-    <h1>Bem-vindo(a)!</h1>
-    <p>Olá, <strong id="user-name">Filho do Sagrado</strong> 👋</p>
-    <p>Esta é a área interna do TUFDS.</p>
-    <button onclick="sair()">Sair</button>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 class="title">Painel Interno – TUFDS</h1>
+        <p class="hello">Olá, <strong id="user-name">Filho do Sagrado</strong> 👋</p>
+      </div>
+      <button class="logout" onclick="sair()">Sair</button>
+    </div>
+
+    <div class="grid">
+
+      <!-- Transparência Financeira -->
+      <div class="card" role="link" tabindex="0"
+           onclick="go('/public/admin/partials/FinanceiroView.html')"
+           onkeydown="if(event.key==='Enter') go('/public/admin/partials/FinanceiroView.html')">
+        <div class="icon">💰</div>
+        <div>
+          <h3>Transparência Financeira</h3>
+          <p>Receitas, despesas, saldo e mensalidades.</p>
+        </div>
+      </div>
+
+      <!-- Registro de Presenças -->
+      <div class="card disabled" role="link" tabindex="0"
+           onclick="go('#', true)"
+           onkeydown="if(event.key==='Enter') go('#', true)">
+        <div class="icon">📝</div>
+        <div>
+          <h3>Registro de Presenças</h3>
+          <p>Em breve.</p>
+        </div>
+      </div>
+
+      <!-- Controle de Faltas -->
+      <div class="card disabled" role="link" tabindex="0"
+           onclick="go('#', true)"
+           onkeydown="if(event.key==='Enter') go('#', true)">
+        <div class="icon">⏰</div>
+        <div>
+          <h3>Controle de Faltas</h3>
+          <p>Em breve.</p>
+        </div>
+      </div>
+
+      <!-- Aulas de Desenvolvimento -->
+      <div class="card disabled" role="link" tabindex="0"
+           onclick="go('#', true)"
+           onkeydown="if(event.key==='Enter') go('#', true)">
+        <div class="icon">📚</div>
+        <div>
+          <h3>Aulas de Desenvolvimento</h3>
+          <p>Em breve.</p>
+        </div>
+      </div>
+
+      <!-- Desenvolvimento Individual -->
+      <div class="card disabled" role="link" tabindex="0"
+           onclick="go('#', true)"
+           onkeydown="if(event.key==='Enter') go('#', true)">
+        <div class="icon">🌱</div>
+        <div>
+          <h3>Desenvolvimento Individual</h3>
+          <p>Em breve.</p>
+        </div>
+      </div>
+
+      <!-- Aniversariantes -->
+      <div class="card disabled" role="link" tabindex="0"
+           onclick="go('#', true)"
+           onkeydown="if(event.key==='Enter') go('#', true)">
+        <div class="icon">🎉</div>
+        <div>
+          <h3>Aniversariantes</h3>
+          <p>Em breve.</p>
+        </div>
+      </div>
+
+    </div>
   </div>
 </body>
 </html>
