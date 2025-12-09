@@ -1,97 +1,60 @@
 // /api/presencas/init.js
-// Retorna { ok: true, nomes: [...] } lendo a aba "Cadastro" da planilha
-
 import { google } from 'googleapis';
 
 const PLANILHA_ID = process.env.SHEET_ID || '1a1Vu39CcTHtSGU9PUtuyRy76QqIpisM8LUn7Lq4qFx0';
 const ABA_CADASTRO = 'Cadastro';
 
-function norm(s) {
-  return String(s || '')
+function normalizar(txt) {
+  return String(txt || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 export default async function handler(req, res) {
   try {
-    const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-    let privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
-
-    if (!clientEmail || !privateKey) {
-      return res.status(500).json({ ok: false, message: 'Faltam variáveis de ambiente do Google Service Account.' });
+    const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    let key = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+    if (!email || !key) {
+      return res.status(500).json({ ok:false, message:'Credenciais do Google ausentes' });
     }
-    // Corrige quebra de linha do PRIVATE KEY salvo no Vercel
-    privateKey = privateKey.replace(/\\n/g, '\n');
+    key = key.replace(/\\n/g, '\n');
 
     const auth = new google.auth.JWT(
-      clientEmail,
+      email,
       null,
-      privateKey,
+      key,
       ['https://www.googleapis.com/auth/spreadsheets.readonly']
     );
     const sheets = google.sheets({ version: 'v4', auth });
 
-    const range = `${ABA_CADASTRO}!A:Z`; // pega o cabeçalho + dados
     const { data } = await sheets.spreadsheets.values.get({
       spreadsheetId: PLANILHA_ID,
-      range
+      range: `${ABA_CADASTRO}!A:Z`
     });
 
     const values = data.values || [];
-    if (values.length < 2) return res.json({ ok: true, nomes: [] });
+    if (values.length < 2) return res.json({ ok:true, nomes:[] });
 
-    const header = values[0].map(h => String(h).trim());
-    const H = header.map(norm);
+    const header = values[0].map(String);
+    const normHeader = header.map(normalizar);
 
-    // Índices (nome + ativo?)
-    const nomeIdx = (() => {
-      const candidatos = [
-        'nome completo (favor preencher sem abreviacoes)',
-        'nome completo',
-        'nome'
-      ];
-      for (let i = 0; i < H.length; i++) {
-        for (const c of candidatos) {
-          if (H[i] === c || H[i].includes(c)) return i;
-        }
-      }
-      return -1;
-    })();
+    const nomeIdx = normHeader.findIndex(h => h.includes('nome completo'));
+    const ativoIdx = normHeader.findIndex(h => h.includes('ativo'));
 
-    const ativoIdx = (() => {
-      const candidatos = ['ativo?', 'ativo', 'status', 'situacao', 'situação'];
-      for (let i = 0; i < H.length; i++) {
-        for (const c of candidatos) {
-          if (H[i] === c || H[i].includes(c)) return i;
-        }
-      }
-      return -1;
-    })();
+    const nomes = values.slice(1)
+      .map(r => [r[nomeIdx] || '', r[ativoIdx] || ''])
+      .filter(([n]) => n)
+      .filter(([n, a]) => {
+        const st = normalizar(a);
+        return !st || st === 'sim' || st === 'ativo' || st === 'ativo(a)';
+      })
+      .map(([n]) => String(n).trim())
+      .filter((v, i, arr) => v && arr.indexOf(v) === i)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
-    if (nomeIdx < 0) {
-      return res.status(400).json({ ok: false, message: 'Coluna de nome não encontrada na aba Cadastro.' });
-    }
-
-    // Filtra só ativos (se existir coluna "Ativo?")
-    const nomesSet = new Set();
-    for (let r = 1; r < values.length; r++) {
-      const row = values[r] || [];
-      const nome = String(row[nomeIdx] || '').trim();
-      if (!nome) continue;
-
-      if (ativoIdx >= 0) {
-        const st = norm(row[ativoIdx]);
-        const isAtivo = !st || st === 'sim' || st === 'ativo' || st === 'ativo(a)';
-        if (!isAtivo) continue;
-      }
-      nomesSet.add(nome);
-    }
-
-    const nomes = Array.from(nomesSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    return res.json({ ok: true, nomes });
+    return res.json({ ok:true, nomes });
   } catch (err) {
     console.error(err);
-    // Evita “Unexpected token … not valid JSON” sempre respondendo JSON
-    return res.status(500).json({ ok: false, message: String(err?.message || err) });
+    return res.status(500).json({ ok:false, message:err.message || String(err) });
   }
 }
