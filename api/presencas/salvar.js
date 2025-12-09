@@ -1,54 +1,62 @@
 // api/presencas/salvar.js
-const { getDoc } = require('../_lib/sheets');
+import { getSheetsClient, ensureSheet, appendRows } from '../../lib/sheets.js';
 
-const ABA_PRESENCAS = 'Presencas';
-const ABA_CONFIG    = 'Configurações';
-const KEY_CODIGO    = 'CODIGO_GIRA_ATUAL';
-const TZ            = process.env.TZ_MANAUS || 'America/Manaus';
+const TZ = 'America/Manaus';
+// Mesmas coordenadas usadas no front (para gravar a distância no registro)
+const LAT_TERREIRO = -3.072586021397572;
+const LON_TERREIRO = -60.042981419063146;
 
-function fmtDateBR(d){
-  const pad = n => String(n).padStart(2,'0');
-  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+function toRad(g){ return g * Math.PI / 180; }
+function distanciaEmMetros(lat1, lon1, lat2, lon2){
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat/2)**2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon/2)**2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-module.exports = async (req, res) => {
-  try {
-    if (req.method !== 'POST') return res.status(405).json({ ok:false, message:'Method not allowed' });
-
-    const { nome, codigo, observacao } = req.body || {};
-    if (!nome)   return res.status(400).json({ ok:false, message:'Selecione o nome' });
-    if (!codigo) return res.status(400).json({ ok:false, message:'Informe o código da gira' });
-
-    const doc = await getDoc();
-
-    // lê código atual
-    const shCfg = doc.sheetsByTitle[ABA_CONFIG];
-    if (!shCfg) throw new Error('Aba Configurações não encontrada');
-    await shCfg.loadHeaderRow();
-    const rowsCfg = await shCfg.getRows();
-    const rCodigo = rowsCfg.find(r => String(r['Chave']||'').trim() === KEY_CODIGO);
-    const codigoAtual = rCodigo ? String(rCodigo['Valor']||'').trim() : '';
-    if (!codigoAtual) throw new Error('Nenhum código ativo. Aguarde o dirigente iniciar.');
-    if (String(codigo).trim().toUpperCase() !== codigoAtual.toUpperCase()) {
-      throw new Error('Código incorreto. Verifique o código exibido.');
+export default async function handler(req, res){
+  try{
+    if (req.method !== 'POST') {
+      return res.status(405).json({ ok:false, message:'Método não permitido' });
     }
 
-    // grava presença
-    let shOut = doc.sheetsByTitle[ABA_PRESENCAS];
-    if (!shOut) {
-      shOut = await doc.addSheet({ title: ABA_PRESENCAS, headerValues: ['DataHora','Nome','CodigoGira','Observacao'] });
+    const { nome, observacao, lat, lon } = req.body || {};
+    if (!nome) return res.status(400).json({ ok:false, message:'Informe o nome.' });
+
+    // não obrigamos lat/lon no backend (cliente já bloqueia); mas gravamos se veio
+    const latNum = (lat==null ? null : Number(lat));
+    const lonNum = (lon==null ? null : Number(lon));
+    let dist = null;
+    if (!Number.isNaN(latNum) && !Number.isNaN(lonNum) && latNum !== null && lonNum !== null){
+      dist = distanciaEmMetros(latNum, lonNum, LAT_TERREIRO, LON_TERREIRO);
     }
 
-    const agora = new Date(); // timezone será apenas para formatação
-    await shOut.addRow({
-      DataHora: fmtDateBR(agora),
-      Nome: nome,
-      CodigoGira: String(codigo).trim().toUpperCase(),
-      Observacao: String(observacao||'').trim()
-    });
+    // garante aba e cabeçalho
+    await ensureSheet('Presencas', ['DataHora', 'Nome', 'Latitude', 'Longitude', 'Distancia_m', 'Observacao']);
 
-    res.status(200).json({ ok:true, msg:'Presença registrada' });
-  } catch (err) {
-    res.status(500).json({ ok:false, message: err.message || String(err) });
+    // Data/hora Manaus (formato dd/MM/yyyy HH:mm:ss)
+    const now = new Date();
+    const dataHora = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: TZ, year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', second:'2-digit'
+    }).format(now).replace(',', '');
+
+    await appendRows('Presencas!A1', [[
+      dataHora,
+      String(nome || ''),
+      latNum==null ? '' : latNum,
+      lonNum==null ? '' : lonNum,
+      dist==null ? '' : Math.round(dist),
+      String(observacao || '')
+    ]]);
+
+    return res.status(200).json({ ok:true });
+  }catch(err){
+    console.error('presencas/salvar erro:', err);
+    return res.status(500).json({ ok:false, message: err.message || String(err) });
   }
-};
+}
