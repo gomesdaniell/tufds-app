@@ -108,7 +108,6 @@
         body: JSON.stringify(payload)
       });
 
-      // Lê como texto e tenta converter para JSON (evita erro “Unexpected token”)
       const raw = await res.text();
       let data;
       try { data = JSON.parse(raw); }
@@ -120,15 +119,14 @@
 
       btn.disabled = false; btn.textContent = 'Registrar falta';
       msg.className = 'ok';
-      msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${data.id}`;
+      msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${data.id || data.registroID || ''}`;
       msg.style.display = 'block';
 
       // limpa campos
       $('#observacao').value = '';
       $('#obsCount').textContent = '0';
       document.querySelectorAll('#motivosBox input[type=checkbox]').forEach(ch => ch.checked = false);
-      // mantém a data preenchida; se preferir resetar para hoje, descomente:
-      // $('#dataAusencia').value = $('#dataAusencia').dataset.hoje || '';
+      // mantém a data do campo
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Registrar falta';
       msg.className = 'err';
@@ -137,30 +135,42 @@
     }
   });
 
-  // INIT
-  document.addEventListener('DOMContentLoaded', async () => {
+  // INIT — roda imediatamente quando o partial é injetado
+  (async function __tufds_faltas_init(){
+    // evita rodar duas vezes se o loader reinserir o script
+    if (window.__tufds_faltas_init_ran) return;
+    window.__tufds_faltas_init_ran = true;
+
     try {
       const res = await fetch('/api/faltas/init.js');
       const j = await res.json();
+
       if (!j.ok) throw new Error(j.message || 'Erro ao carregar init');
 
-      NOMES   = j.nomes   || [];
-      MOTIVOS = j.motivos || [];
+      NOMES   = Array.isArray(j.nomes)   ? j.nomes   : [];
+      MOTIVOS = Array.isArray(j.motivos) ? j.motivos : [];
 
+      // popula select de nomes
       const sel = $('#nome');
       sel.innerHTML = '<option value="">Selecione...</option>' +
         NOMES.map(n => `<option>${n}</option>`).join('');
 
+      // renderiza motivos
       renderMotivos();
 
+      // seta data de hoje (yyyy-mm-dd)
       if (j.hojeISO) {
-        $('#dataAusencia').value = j.hojeISO;          // yyyy-mm-dd
+        $('#dataAusencia').value = j.hojeISO;
         $('#dataAusencia').dataset.hoje = j.hojeISO;
       }
     } catch (err) {
-      alert('Erro ao carregar dados iniciais: ' + err.message);
+      const msg = $('#msg');
+      msg.className = 'err';
+      msg.textContent = '❌ Erro ao carregar dados iniciais: ' + (err.message || err);
+      msg.style.display = 'block';
     }
-  });
+  })();
 </script>
 </body>
 </html>
+
