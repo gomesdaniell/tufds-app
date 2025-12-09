@@ -1,55 +1,44 @@
 // api/presencas/init.js
-const { getDoc } = require('../_lib/sheets');
+import { readRange } from '../../lib/sheets.js';
 
-const ABA_CADASTRO = 'Cadastro';
-const ABA_CONFIG   = 'Configurações';         // onde guarda CODIGO_GIRA_ATUAL e CODIGO_GIRA_TS
-const KEY_CODIGO   = 'CODIGO_GIRA_ATUAL';
-const KEY_TS       = 'CODIGO_GIRA_TS';
+function norm(s){
+  return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/\s+/g,' ').trim();
+}
 
-function norm(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
-
-module.exports = async (req, res) => {
-  try {
-    const doc = await getDoc();
-
-    // Cadastro
-    const shCad = doc.sheetsByTitle[ABA_CADASTRO];
-    if (!shCad) throw new Error(`Aba não encontrada: ${ABA_CADASTRO}`);
-    await shCad.loadHeaderRow();
-    const H = shCad.headerValues.map(h=>String(h||'').trim());
-
-    const iNome  = H.findIndex(h => /nome completo/i.test(h));
-    const iAtivo = H.findIndex(h => /ativo|\bstatus\b|situa[cç][aã]o/i.test(h));
-    if (iNome < 0)  throw new Error('Coluna de Nome não encontrada na aba Cadastro');
-    if (iAtivo < 0) throw new Error('Coluna de Ativo/Status não encontrada na aba Cadastro');
-
-    const rows = await shCad.getRows();
-    const nomes = rows
-      .map(r => [String(r._rawData[iNome]||'').trim(), String(r._rawData[iAtivo]||'').trim().toLowerCase()])
-      .filter(([n,st]) => n && ['sim','ativo','ativo(a)'].includes(st))
-      .map(([n]) => n)
-      .filter((v,i,a)=>v && a.indexOf(v)===i)
-      .sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-    // Configurações (código atual)
-    const shCfg = doc.sheetsByTitle[ABA_CONFIG];
-    let codigoAtual = '';
-    let codigoTs = 0;
-
-    if (shCfg) {
-      await shCfg.loadCells({ startRowIndex: 0, endRowIndex: shCfg.rowCount, startColumnIndex: 0, endColumnIndex: shCfg.columnCount });
-      // formato esperado: chave na Col A, valor na Col B
-      for (let r = 1; r < shCfg.rowCount; r++) {
-        const key = String(shCfg.getCell(r, 0).value || '').trim();
-        if (!key) continue;
-        const val = String(shCfg.getCell(r, 1).value || '').trim();
-        if (key === KEY_CODIGO) codigoAtual = val;
-        if (key === KEY_TS)     codigoTs    = Number(val || 0);
-      }
+export default async function handler(req, res){
+  try{
+    if (req.method !== 'GET') {
+      return res.status(405).json({ ok:false, message:'Método não permitido' });
     }
 
-    res.status(200).json({ ok: true, nomes, codigoAtual, codigoTs });
-  } catch (err) {
-    res.status(500).json({ ok:false, message: err.message || String(err) });
+    // Lê header + linhas suficientes (A1:AG cobre bastante)
+    const rows = await readRange('Cadastro!A1:AG');
+    if (!rows.length) return res.status(200).json({ ok:true, nomes: [] });
+
+    const header = rows[0].map(h=>String(h||'').trim());
+    const iNome  = header.findIndex(h => /nome completo/i.test(h) || /nome/i.test(h));
+    const iAtivo = header.findIndex(h => /ativo/i.test(h) || /status/i.test(h) || /situa(ç|c)ao/i.test(h));
+
+    if (iNome < 0) {
+      return res.status(200).json({ ok:true, nomes: [] });
+    }
+
+    const nomes = rows.slice(1)
+      .map(r => {
+        const nome = String(r[iNome] || '').trim();
+        const st   = iAtivo >= 0 ? norm(r[iAtivo]) : 'sim';
+        const ativo = (!st || st === 'sim' || st.startsWith('ativo'));
+        return { nome, ativo };
+      })
+      .filter(x => x.nome && x.ativo)
+      .map(x => x.nome)
+      .filter((v,i,a)=>a.indexOf(v)===i)
+      .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+    return res.status(200).json({ ok:true, nomes });
+  }catch(err){
+    console.error('presencas/init erro:', err);
+    return res.status(500).json({ ok:false, message: err.message || String(err) });
   }
-};
+}
