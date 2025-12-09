@@ -60,20 +60,31 @@
   const LON_TERREIRO = -59.99540507934922;
   const RAIO_MAX_METROS = 300;
 
-  const elNome    = document.getElementById('nome');
-  const elObs     = document.getElementById('obs');
-  const btnEnviar = document.getElementById('btnEnviar');
-  const geoStatus = document.getElementById('geoStatus');
-  const elMsg     = document.getElementById('msg');
+  // ================== ELEMENTOS ==================
+  const elNome     = document.getElementById('nome');
+  const elObs      = document.getElementById('obs');
+  const btnEnviar  = document.getElementById('btnEnviar');
+  const geoStatus  = document.getElementById('geoStatus');
+  const elMsg      = document.getElementById('msg');
 
+  // cria um botão discreto ao lado do status (sem alterar seu visual geral)
+  const btnGeo = document.createElement('button');
+  btnGeo.type = 'button';
+  btnGeo.id = 'btnGeo';
+  btnGeo.textContent = 'Permitir localização';
+  btnGeo.style.cssText =
+    'margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;' +
+    'cursor:pointer;font-size:12px;color:#111;';
+  geoStatus.after(btnGeo);
+  btnGeo.style.display = 'none';
+
+  // ================== UTILS ==================
   function showMsg(ok, text){
     elMsg.className = ok ? 'ok' : 'err';
     elMsg.textContent = text;
     elMsg.style.display = 'block';
     if (ok) setTimeout(()=> elMsg.style.display='none', 4000);
   }
-
-  // Haversine
   const toRad = g => g * Math.PI / 180;
   function distanciaEmMetros(lat1, lon1, lat2, lon2){
     const R = 6371000;
@@ -85,7 +96,6 @@
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   }
-
   function habilitarFormulario(msgOk){
     elNome.disabled = false;
     elObs.disabled = false;
@@ -101,13 +111,12 @@
     geoStatus.className = 'muted err';
   }
 
+  // ================== NOMES (reuso do init de Faltas) ==================
   async function carregarNomes(){
     try{
-      // CHANGED: reaproveita o init de Faltas, que já lê a aba Cadastro
-      const r = await fetch('/api/faltas/init.js');     // <<<<< CHANGED
+      const r = await fetch('/api/faltas/init.js');
       const j = await r.json();
       if (!j.ok) throw new Error(j.message || 'Falha ao carregar nomes');
-
       const nomes = j.nomes || [];
       elNome.innerHTML = '<option value="">Selecione...</option>' +
         nomes.map(n => `<option>${n}</option>`).join('');
@@ -116,17 +125,47 @@
     }
   }
 
-  function solicitarLocalizacao(){
+  // ================== GEO: Permissions API + gesto do usuário ==================
+  async function estadoPermissaoGeo(){
+    try{
+      // Nem todo navegador implementa
+      if (!navigator.permissions) return 'prompt';
+      const status = await navigator.permissions.query({ name: 'geolocation' });
+      // Atualiza o botão automaticamente se o estado mudar (p.ex. usuário libera no lock icon)
+      status.onchange = () => atualizarUIporEstado(status.state);
+      return status.state; // 'granted' | 'prompt' | 'denied'
+    }catch{
+      return 'prompt';
+    }
+  }
+
+  function atualizarUIporEstado(state){
+    if (state === 'granted'){
+      btnGeo.style.display = 'none';
+      geoStatus.textContent = '⏳ Confirmando sua localização…';
+      solicitarLocalizacao(true);
+    } else if (state === 'prompt'){
+      // precisa de gesto do usuário
+      btnGeo.style.display = 'inline-block';
+      geoStatus.textContent = 'ℹ️ Clique em "Permitir localização" para autorizar.';
+      bloquearFormulario('Aguardando autorização de localização…');
+    } else { // denied
+      btnGeo.style.display = 'inline-block';
+      geoStatus.textContent = '❌ Localização bloqueada pelo navegador. Habilite a permissão e tente novamente.';
+      bloquearFormulario('Localização bloqueada.');
+    }
+  }
+
+  function solicitarLocalizacao(fromUserGesture){
     if (!navigator.geolocation){
       bloquearFormulario('Seu dispositivo não permite localização.');
       return;
     }
+    // Alguns browsers só honram após gesto do usuário (fromUserGesture = true)
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
+        const { latitude:lat, longitude:lon } = pos.coords;
         const dist = distanciaEmMetros(lat, lon, LAT_TERREIRO, LON_TERREIRO);
-
         if (dist <= RAIO_MAX_METROS){
           habilitarFormulario(`✅ Localização confirmada (~${dist.toFixed(0)}m)`);
         } else {
@@ -135,23 +174,33 @@
       },
       err => {
         console.error(err);
-        bloquearFormulario('❌ Não foi possível obter sua localização.');
+        if (err.code === 1){ // PERMISSION_DENIED
+          atualizarUIporEstado('denied');
+        } else {
+          bloquearFormulario('❌ Não foi possível obter sua localização. Tente novamente.');
+          btnGeo.style.display = 'inline-block';
+        }
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
-  // envio simplificado: só nome + observação (seu endpoint atual)
+  // Clique do botão = gesto do usuário exigido por Safari/iOS/Chrome
+  btnGeo.addEventListener('click', () => {
+    btnGeo.style.display = 'none';
+    geoStatus.textContent = '⏳ Solicitando localização…';
+    solicitarLocalizacao(true);
+  });
+
+  // ================== ENVIO (nome + observação) ==================
   btnEnviar.addEventListener('click', async () => {
     const nome = (elNome.value || '').trim();
     const observacao = (elObs.value || '').trim();
     if (!nome) return showMsg(false, 'Selecione seu nome.');
 
-    btnEnviar.disabled = true; btnEnviar.textContent = 'Enviando...';
+    btnEnviar.disabled = true; btnEnviar.textContent = 'Enviando…';
     elMsg.style.display = 'none';
-
     try{
-      // CHANGED: use o mesmo endpoint que você já tem para salvar presença
       const r = await fetch('/api/presencas/salvar.js', {
         method: 'POST',
         headers: { 'Content-Type':'application/json' },
@@ -168,13 +217,15 @@
     }
   });
 
-  document.addEventListener('DOMContentLoaded', () => {
-    // carrega nomes independente do GPS,
-    // mas só habilita o formulário após a validação da localização
-    carregarNomes();
-    solicitarLocalizacao();
+  // ================== BOOT ==================
+  document.addEventListener('DOMContentLoaded', async () => {
+    await carregarNomes();                           // carrega nomes
+    const st = await estadoPermissaoGeo();          // vê status da permissão
+    atualizarUIporEstado(st);                       // ajusta UI (mostra botão se preciso)
+    if (st === 'granted') solicitarLocalizacao(false);
   });
 </script>
+
 
 </body>
 </html>
