@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Lançamento Financeiro – TUFDS</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#f8f9fb;margin:0;color:#333}
+  .wrap{max-width:760px;margin:30px auto;background:#fff;padding:24px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+  h1{margin:0 0 16px}
+  label{font-weight:700;display:block;margin:12px 0 6px}
+  input[type="text"],input[type="date"],select,textarea{
+    width:100%;padding:9px;border:1px solid #ccc;border-radius:8px;font-size:14px
+  }
+  textarea{min-height:60px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .full{grid-column:1 / -1}
+  button{background:#111827;color:#fff;border:0;padding:10px 16px;border-radius:8px;font-weight:700;cursor:pointer}
+  button:hover{background:#333}
+  #msg{display:none;margin-top:12px;padding:10px;border-radius:8px;text-align:center;font-weight:700}
+  #msg.ok{background:#e8f5e9;color:#256029}
+  #msg.err{background:#fdecea;color:#a12721}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lançamento Financeiro – TUFDS</h1>
+
+  <div class="row">
+    <div>
+      <label>Data do movimento</label>
+      <input type="date" id="dataMovimento"/>
+    </div>
+
+    <div>
+      <label>Tipo</label>
+      <select id="tipo">
+        <option value="">Selecione...</option>
+        <option>Receita</option>
+        <option>Despesa</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Categoria</label>
+      <select id="categoria"></select>
+    </div>
+
+    <div>
+      <label>Valor (R$)</label>
+      <input type="text" id="valor" inputmode="numeric" placeholder="0,00"/>
+    </div>
+
+    <div>
+      <label>Nome Associado</label>
+      <select id="nomeAssociado"></select>
+    </div>
+
+    <div>
+      <label>Forma de Pagamento</label>
+      <select id="formaPagamento">
+        <option value="">Selecione...</option>
+        <option>PIX</option>
+        <option>Dinheiro</option>
+        <option>Cartão Débito</option>
+        <option>Cartão Crédito</option>
+        <option>Transferência</option>
+        <option>Outros</option>
+      </select>
+    </div>
+
+    <div class="full">
+      <label>Descrição / Observação</label>
+      <textarea id="descricao" placeholder="Ex.: Mensalidade João, Doação Maria, compra de velas para gira..."></textarea>
+    </div>
+  </div>
+
+  <button id="btnSalvar">Salvar Lançamento</button>
+  <div id="msg"></div>
+</div>
+
+<script>
+  const el = id => document.getElementById(id);
+  const $msg = el('msg');
+  const $btn = el('btnSalvar');
+  const $valor = el('valor');
+
+  function showMsg(ok, txt){
+    $msg.className = ok ? 'ok' : 'err';
+    $msg.textContent = txt;
+    $msg.style.display = 'block';
+    if (ok) setTimeout(()=> $msg.style.display='none', 3000);
+  }
+
+  // --- Máscara de moeda pt-BR (sem símbolo) ---
+  function formatBRLInput(ev){
+    let v = ev.target.value || '';
+    v = v.replace(/\D/g,'');
+    if (!v) { ev.target.value = ''; return; }
+    while (v.length < 3) v = '0' + v;
+    const int = v.slice(0, -2);
+    const dec = v.slice(-2);
+    const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    ev.target.value = intFmt + ',' + dec;
+  }
+
+  // --- Init: carrega categorias e nomes via fetch ---
+  async function init(){
+    try {
+      const res = await fetch('/api/finance/init.js');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message);
+
+      el('dataMovimento').value = data.hojeISO;
+
+      el('categoria').innerHTML =
+        '<option value="">Selecione...</option>' +
+        (data.categorias||[]).map(c=>`<option>${c}</option>`).join('');
+
+      el('nomeAssociado').innerHTML =
+        '<option value="">(opcional)</option>' +
+        (data.nomes||[]).map(n=>`<option>${n}</option>`).join('');
+
+      $valor.addEventListener('input', formatBRLInput);
+    } catch (err) {
+      showMsg(false, 'Erro ao carregar dados: ' + err.message);
+    }
+  }
+
+  // --- Salvar ---
+  async function salvar(){
+    const payload = {
+      dataMovimento: el('dataMovimento').value,
+      tipo: el('tipo').value,
+      categoria: el('categoria').value,
+      descricao: el('descricao').value,
+      valor: el('valor').value,
+      nomeAssociado: el('nomeAssociado').value,
+      formaPagamento: el('formaPagamento').value
+    };
+
+    $btn.disabled = true; $btn.textContent = 'Salvando...';
+    $msg.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/finance/salvar.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message);
+      showMsg(true, data.msg || 'Lançamento registrado!');
+      ['descricao','valor'].forEach(i=>el(i).value='');
+    } catch (err) {
+      showMsg(false, 'Erro ao salvar: ' + err.message);
+    } finally {
+      $btn.disabled = false; $btn.textContent = 'Salvar Lançamento';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    init();
+    $btn.addEventListener('click', salvar);
+  });
+</script>
+</body>
+</html>
