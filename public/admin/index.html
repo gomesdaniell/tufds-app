@@ -65,37 +65,50 @@
   }
 </style>
 <script>
-async function loadPartial(url) {
-  // evita cache do navegador
-  const res = await fetch(url, { cache: 'no-store' });
-  const txt = await res.text();
+(async () => {
+  try {
+    const res = await fetch('/api/auth/me.js');
+    const data = await res.json();
+    if (!data.ok) throw new Error();
+    document.getElementById('user-name').textContent = data.user.nome || data.user.email;
+  } catch {
+    window.location.href = '/public/login.html';
+  }
+})();
 
-  const view = document.getElementById('view');
+async function sair(){
+  try{ await fetch('/api/auth/logout.js',{method:'POST'}); }
+  finally{ window.location.href = '/public/login.html'; }
+}
 
-  // Monta um container temporário para separar scripts do html
-  const tmp = document.createElement('div');
-  tmp.innerHTML = txt;
+// Carrega o conteúdo de uma aba (partial HTML)
+async function loadTab(file, btn){
+  const main = document.querySelector('main');
+  main.innerHTML = '<div id="loader">Carregando...</div>';
 
-  // Coleta e remove os <script> do fragmento
-  const scripts = Array.from(tmp.querySelectorAll('script'));
-  scripts.forEach(s => s.parentNode.removeChild(s));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
 
-  // Injeta o HTML (sem scripts) no container
-  view.innerHTML = tmp.innerHTML;
+  try{
+    const res = await fetch(file);
+    if(!res.ok) throw new Error('Erro ao carregar.');
+    const html = await res.text();
+    main.innerHTML = html;
 
-  // Reexecuta os scripts na ordem
-  for (const s of scripts) {
-    const n = document.createElement('script');
-    if (s.src) n.src = s.src;
-    if (s.type) n.type = s.type;           // preserva type/module se tiver
-    n.textContent = s.textContent;         // para scripts inline
-    document.body.appendChild(n);
-    // opcional: remover após carregar
-    // n.remove();
+    // executa <script> do partial
+    main.querySelectorAll("script").forEach(oldScript => {
+      const newScript = document.createElement("script");
+      if (oldScript.src) newScript.src = oldScript.src;
+      else newScript.textContent = oldScript.textContent;
+      document.body.appendChild(newScript);
+      oldScript.remove();
+    });
+
+  }catch(e){
+    main.innerHTML = '<p style="color:#b91c1c">Falha ao carregar o módulo.</p>';
   }
 }
 </script>
-
 </head>
 
 <body>
