@@ -1,81 +1,51 @@
-// api/auth/login.js
-import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import { readRange } from '../../lib/sheets.js';
-
-const JWT_SECRET = process.env.TUFDS_JWT_SECRET || 'dev-secret-change-me';
-const COOKIE = 'tufds_token';
-const MAX_AGE = 60 * 60 * 8; // 8h
-
-function normalize(str) {
-  return String(str || '').trim();
-}
-
-// Validação de senha SHA-256 Base64 (padrão Google Apps Script)
-function checkPasswordAgainstHash(plain, storedHash) {
-  const hash = normalize(storedHash);
-  const digest = crypto
-    .createHash('sha256')
-    .update(String(plain), 'utf8')
-    .digest('base64');
-
-  console.log('🧩 Calculado:', digest);
-  console.log('🧩 Armazenado:', hash);
-
-  return digest === hash;
-}
+import crypto from "crypto";
+import { GoogleSpreadsheet } from "google-spreadsheet";
+import { JWT } from "google-auth-library";
 
 export default async function handler(req, res) {
+  if (req.method !== "POST")
+    return res.status(405).json({ ok: false, message: "Método inválido" });
+
   try {
-    if (req.method !== 'POST') {
-      return res.status(405).json({ ok: false, message: 'Método não permitido' });
+    const { email, senha } = req.body;
+    if (!email || !senha)
+      return res.status(400).json({ ok: false, message: "E-mail e senha são obrigatórios." });
+
+    // Autenticação com o Google
+    const serviceAccountAuth = new JWT({
+      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+
+    const doc = new GoogleSpreadsheet(process.env.PLANILHA_ID, serviceAccountAuth);
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByTitle["Cadastro"];
+    const rows = await sheet.getRows();
+
+    // Localiza usuário pelo e-mail (coluna F)
+    const userRow = rows.find(r => String(r["E-mail"]).trim().toLowerCase() === email.toLowerCase());
+    if (!userRow)
+      return res.status(404).json({ ok: false, message: "E-mail não encontrado." });
+
+    // Obtém o hash armazenado (coluna AC)
+    const senhaHashPlanilha = String(userRow["SENHA_HASH"] || "").trim();
+    if (!senhaHashPlanilha)
+      return res.status(400).json({ ok: false, message: "Usuário sem senha cadastrada." });
+
+    // Gera hash da senha digitada
+    const senhaDigitadaHash = crypto.createHash("sha256").update(senha).digest("hex");
+
+    // Compara os hashes
+    if (senhaDigitadaHash !== senhaHashPlanilha) {
+      return res.status(401).json({ ok: false, message: "Senha incorreta." });
     }
 
-    const { email, senha } = req.body || {};
-    if (!email || !senha) {
-      return res.status(400).json({ ok: false, message: 'Informe e-mail e senha.' });
-    }
-
-    // Lê planilha: aba "Cadastro" (até AD cobre a coluna AC = SENHA_HASH)
-    const rows = await readRange('Cadastro!A1:AD');
-    if (!rows.length) {
-      return res.status(500).json({ ok: false, message: 'Planilha vazia ou inacessível.' });
-    }
-
-    const header = rows[0].map(h => normalize(h));
-    const ixEmail = header.findIndex(h => /e-?mail/i.test(h));
-    const ixHash  = header.findIndex(h => /senha.*hash/i.test(h));
-    const ixNome  = header.findIndex(h => /^nome\b/i.test(h));
-
-    if (ixEmail < 0 || ixHash < 0) {
-      return res.status(500).json({ ok: false, message: 'Colunas não encontradas (E-mail ou SENHA_HASH).' });
-    }
-
-    const alvo = rows
-      .slice(1)
-      .find(r => normalize(r[ixEmail]).toLowerCase() === normalize(email).toLowerCase());
-
-    if (!alvo) {
-      return res.status(401).json({ ok: false, message: 'E-mail não cadastrado.' });
-    }
-
-    const storedHash = normalize(alvo[ixHash]);
-    const passOK = checkPasswordAgainstHash(senha, storedHash);
-    if (!passOK) {
-      return res.status(401).json({ ok: false, message: 'Senha incorreta.' });
-    }
-
-    const nome = normalize(alvo[ixNome]) || normalize(email);
-
-    const token = jwt.sign({ sub: normalize(email), nome }, JWT_SECRET, { expiresIn: MAX_AGE });
-    res.setHeader(
-      'Set-Cookie',
-      `${COOKIE}=${token}; HttpOnly; Path=/; Max-Age=${MAX_AGE}; SameSite=Lax; Secure`
-    );
-
-    return res.status(200).json({ ok: true, message: 'Login autorizado.' });
-  } catch (e) {
-    console.error('Erro login Sheets:', e);
-    return res.status(500).json({ ok: false, message: 'Erro no login.' });
+    // Login bem-sucedido
+    res.json({ ok: true, message: "Autenticado com sucesso." });
+  } catch (err) {
+    console.error("Erro no login:", err);
+    res.status(500).json({ ok: false, message: "Erro interno: " + err.message });
   }
 }
