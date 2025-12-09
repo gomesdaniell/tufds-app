@@ -11,43 +11,61 @@
   }
   *{ box-sizing:border-box }
   body{
-    margin:0; font-family:system-ui,-apple-system, Segoe UI, Roboto;
-    background:var(--bg); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+    margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto;
+    background:var(--bg); color:var(--text);
+    display:flex; flex-direction:column; min-height:100vh;
   }
-  .wrap{ width:min(1100px, 96%); }
-  .top{
-    display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;
-  }
-  .title{ margin:0; color:var(--accent); font-size:26px }
-  .hello{ margin:4px 0 0; color:var(--muted) }
-  .logout{ background:var(--accent); color:#fff; border:0; border-radius:999px; padding:8px 14px; cursor:pointer; }
-  .logout:hover{ background:var(--accent-2) }
 
-  .grid{
-    display:grid; gap:16px;
-    grid-template-columns: repeat(3, 1fr);
+  /* Cabeçalho fixo */
+  header{
+    background:var(--accent);
+    color:#fff;
+    padding:16px 24px;
+    display:flex; justify-content:space-between; align-items:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.1);
   }
-  @media (max-width: 880px){ .grid{ grid-template-columns: repeat(2, 1fr) } }
-  @media (max-width: 560px){ .grid{ grid-template-columns: 1fr } }
+  header h1{ margin:0; font-size:20px }
+  header .user{
+    display:flex; align-items:center; gap:10px;
+    font-size:15px;
+  }
+  button.logout{
+    background:#fff2; border:0; border-radius:999px;
+    padding:6px 12px; color:#fff; cursor:pointer;
+  }
+  button.logout:hover{ background:#fff3 }
 
-  .card{
-    background:var(--card); border:1px solid var(--border); border-radius:16px;
-    box-shadow:0 2px 8px rgba(0,0,0,.05); padding:18px; display:flex; gap:12px; align-items:center;
-    cursor:pointer; transition:transform .06s ease, background .15s ease;
+  /* Menu de abas */
+  nav{
+    background:#fff; border-bottom:1px solid var(--border);
+    display:flex; gap:10px; padding:10px 16px;
+    flex-wrap:wrap;
   }
-  .card:hover{ background:#fafafa; transform:translateY(-1px) }
-  .icon{
-    width:44px; height:44px; border-radius:12px; display:grid; place-items:center; font-size:22px; background:#ecfdf5; color:#065f46;
+  nav button{
+    background:none; border:1px solid var(--border);
+    border-radius:10px; padding:8px 14px;
+    cursor:pointer; color:var(--text);
+    font-weight:500; transition:.15s;
   }
-  .card h3{ margin:0 0 4px; font-size:18px; color:var(--text) }
-  .card p{ margin:0; color:var(--muted); font-size:14px }
-  .disabled{ opacity:.6; cursor:not-allowed; }
-  .disabled:hover{ transform:none; background:var(--card) }
+  nav button:hover{ background:#f9fafb }
+  nav button.active{
+    background:var(--accent); color:#fff; border-color:var(--accent);
+  }
+
+  /* Conteúdo das abas */
+  main{
+    flex:1;
+    padding:24px;
+    max-width:1200px; margin:0 auto;
+  }
+
+  /* Loader simples */
+  #loader{
+    text-align:center; padding:40px; color:var(--muted);
+  }
 </style>
-
 <script>
 (async () => {
-  // Valida sessão; se não estiver logado, volta pro login
   try {
     const res = await fetch('/api/auth/me.js');
     const data = await res.json();
@@ -59,97 +77,68 @@
 })();
 
 async function sair(){
-  try { await fetch('/api/auth/logout.js', { method:'POST' }); } finally {
-    window.location.href = '/public/login.html';
-  }
+  try{ await fetch('/api/auth/logout.js',{method:'POST'}); }
+  finally{ window.location.href = '/public/login.html'; }
 }
 
-// Navegação dos cards
-function go(url, disabled=false){
-  if (disabled) return;
-  window.location.href = url;
+// Carrega o conteúdo de uma aba (partial HTML)
+async function loadTab(file, btn){
+  const main = document.querySelector('main');
+  main.innerHTML = '<div id="loader">Carregando...</div>';
+
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+
+  try{
+    const res = await fetch(file);
+    if(!res.ok) throw new Error('Erro ao carregar.');
+    const html = await res.text();
+    main.innerHTML = html;
+
+    // executa <script> do partial
+    main.querySelectorAll("script").forEach(oldScript => {
+      const newScript = document.createElement("script");
+      if (oldScript.src) newScript.src = oldScript.src;
+      else newScript.textContent = oldScript.textContent;
+      document.body.appendChild(newScript);
+      oldScript.remove();
+    });
+
+  }catch(e){
+    main.innerHTML = '<p style="color:#b91c1c">Falha ao carregar o módulo.</p>';
+  }
 }
 </script>
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div>
-        <h1 class="title">Painel Interno – TUFDS</h1>
-        <p class="hello">Olá, <strong id="user-name">Filho do Sagrado</strong> 👋</p>
-      </div>
+  <header>
+    <h1>Painel Interno – TUFDS</h1>
+    <div class="user">
+      <span id="user-name">Filho do Sagrado</span>
       <button class="logout" onclick="sair()">Sair</button>
     </div>
+  </header>
 
-    <div class="grid">
+  <nav>
+    <button class="active" onclick="loadTab('/public/admin/partials/FinanceiroView.html', this)">Transparência Financeira</button>
+    <button onclick="loadTab('/public/admin/partials/Presencas.html', this)">Registro de Presenças</button>
+    <button onclick="loadTab('/public/admin/partials/Faltas.html', this)">Controle de Faltas</button>
+    <button onclick="loadTab('/public/admin/partials/Aulas.html', this)">Aulas de Desenvolvimento</button>
+    <button onclick="loadTab('/public/admin/partials/Desenvolvimento.html', this)">Desenvolvimento Individual</button>
+    <button onclick="loadTab('/public/admin/partials/Aniversariantes.html', this)">Aniversariantes</button>
+  </nav>
 
-      <!-- Transparência Financeira -->
-      <div class="card" role="link" tabindex="0"
-           onclick="go('/public/admin/partials/FinanceiroView.html')"
-           onkeydown="if(event.key==='Enter') go('/public/admin/partials/FinanceiroView.html')">
-        <div class="icon">💰</div>
-        <div>
-          <h3>Transparência Financeira</h3>
-          <p>Receitas, despesas, saldo e mensalidades.</p>
-        </div>
-      </div>
+  <main id="content">
+    <div id="loader">Carregando módulo padrão...</div>
+  </main>
 
-      <!-- Registro de Presenças -->
-      <div class="card disabled" role="link" tabindex="0"
-           onclick="go('#', true)"
-           onkeydown="if(event.key==='Enter') go('#', true)">
-        <div class="icon">📝</div>
-        <div>
-          <h3>Registro de Presenças</h3>
-          <p>Em breve.</p>
-        </div>
-      </div>
-
-      <!-- Controle de Faltas -->
-      <div class="card disabled" role="link" tabindex="0"
-           onclick="go('#', true)"
-           onkeydown="if(event.key==='Enter') go('#', true)">
-        <div class="icon">⏰</div>
-        <div>
-          <h3>Controle de Faltas</h3>
-          <p>Em breve.</p>
-        </div>
-      </div>
-
-      <!-- Aulas de Desenvolvimento -->
-      <div class="card disabled" role="link" tabindex="0"
-           onclick="go('#', true)"
-           onkeydown="if(event.key==='Enter') go('#', true)">
-        <div class="icon">📚</div>
-        <div>
-          <h3>Aulas de Desenvolvimento</h3>
-          <p>Em breve.</p>
-        </div>
-      </div>
-
-      <!-- Desenvolvimento Individual -->
-      <div class="card disabled" role="link" tabindex="0"
-           onclick="go('#', true)"
-           onkeydown="if(event.key==='Enter') go('#', true)">
-        <div class="icon">🌱</div>
-        <div>
-          <h3>Desenvolvimento Individual</h3>
-          <p>Em breve.</p>
-        </div>
-      </div>
-
-      <!-- Aniversariantes -->
-      <div class="card disabled" role="link" tabindex="0"
-           onclick="go('#', true)"
-           onkeydown="if(event.key==='Enter') go('#', true)">
-        <div class="icon">🎉</div>
-        <div>
-          <h3>Aniversariantes</h3>
-          <p>Em breve.</p>
-        </div>
-      </div>
-
-    </div>
-  </div>
+  <script>
+    // Carrega a aba padrão ao abrir
+    window.addEventListener('DOMContentLoaded',()=>{
+      const first = document.querySelector('nav button.active');
+      loadTab('/public/admin/partials/FinanceiroView.html', first);
+    });
+  </script>
 </body>
 </html>
