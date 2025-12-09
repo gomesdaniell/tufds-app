@@ -65,21 +65,22 @@ form.addEventListener('submit', async (ev) => {
   btn.disabled = true;
 
   const email = document.getElementById('email').value.trim();
-  const nova  = document.getElementById('nova').value;
+  const novaSenha = document.getElementById('nova').value;  // id do campo "Nova senha"
 
   try {
-    const res = await fetch('/api/auth/redefinir.js', {
+    const res = await fetch('/api/auth/reset.js', {   // <--- AQUI o POST
       method: 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify({ email, nova })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, novaSenha })      // envia e-mail e senha
     });
+
     const data = await res.json().catch(()=>({}));
     if (!res.ok || !data.ok) throw new Error(data?.message || 'Erro ao redefinir.');
 
     msg.className = 'ok';
     msg.textContent = '✅ Senha atualizada com sucesso! Você já pode fazer login.';
     st.textContent = '';
-  } catch(e) {
+  } catch (e) {
     msg.className = 'err';
     msg.textContent = '❌ ' + (e.message || 'Falha na redefinição.');
     st.textContent = '';
@@ -88,6 +89,7 @@ form.addEventListener('submit', async (ev) => {
   }
 });
 </script>
+
 
 </body>
 </html>
