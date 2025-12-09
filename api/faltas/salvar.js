@@ -1,44 +1,99 @@
-// /api/faltas/salvar.js
-import { appendRow } from '../../lib/sheets.js';
+// api/faltas/salvar.js
+import { getSheetsClient } from '../../lib/sheets.js';
 
-const SHEET_ID = '1a1Vu39CcTHtSGU9PUtuyRy76QqIpisM8LUn7Lq4qFx0';
-const ABA_SAIDA = 'Faltas_Registros';
-const TIMEZONE = 'America/Manaus';
+const TZ = 'America/Manaus';
+const SAIDA_SHEET = 'Faltas_Registros';
 
-function gerarCodigo() {
+function genId() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let s = '';
-  for (let i = 0; i < 7; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 7; i++) s += chars[Math.floor(Math.random() * chars.length)];
   return 'ABS-' + s;
+}
+
+function toBR(yyyy_mm_dd) {
+  // evita problemas de fuso: cria Date em meia-noite local
+  const [y, m, d] = String(yyyy_mm_dd).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const dt = new Date(Date.UTC(y, m - 1, d, 3, 0, 0)); // pequeno offset para fugir do DLS
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const yy = dt.getUTCFullYear();
+  return `${dd}/${mm}/${yy}`;
 }
 
 export default async function handler(req, res) {
   try {
-    const { nome, dataAusencia, motivos = [], observacao } = req.body || {};
-
-    if (!nome) throw new Error('Selecione o nome.');
-    if (!dataAusencia) throw new Error('Informe a data da ausência.');
-    if (!observacao || observacao.trim().length < 30) {
-      throw new Error('Observação precisa ter, no mínimo, 30 caracteres.');
+    if (req.method !== 'POST') {
+      return res.status(405).json({ ok: false, message: 'Método não permitido' });
     }
 
-    const registroID = gerarCodigo();
-    const agora = new Date().toLocaleString('pt-BR', { timeZone: TIMEZONE });
-    const dataBR = new Date(dataAusencia + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: TIMEZONE });
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('application/json')) {
+      return res.status(400).json({ ok: false, message: 'Content-Type deve ser application/json' });
+    }
 
-    await appendRow(SHEET_ID, ABA_SAIDA, [
-      agora,
-      registroID,
-      nome,
-      dataBR,
-      motivos.join(', '),
-      '',
-      observacao
-    ]);
+    const body = req.body || {};
+    const nome = String(body?.nome || '').trim();
+    const dataAusencia = String(body?.dataAusencia || '').trim(); // yyyy-mm-dd
+    const motivosArr = Array.isArray(body?.motivos) ? body.motivos : [];
+    const observacao = String(body?.observacao || '').trim();
 
-    res.status(200).json({ ok: true, registroID });
-  } catch (err) {
-    console.error('Erro salvar falta', err);
-    res.status(400).json({ ok: false, message: err.message || 'Erro ao registrar falta.' });
+    if (!nome) return res.status(400).json({ ok: false, message: 'Selecione o nome.' });
+    if (!dataAusencia) return res.status(400).json({ ok: false, message: 'Informe a data da ausência.' });
+    if (observacao.replace(/\s+/g, ' ').trim().length < 30) {
+      return res.status(400).json({ ok: false, message: 'Observação precisa ter, no mínimo, 30 caracteres.' });
+    }
+
+    const { sheets, spreadsheetId } = await getSheetsClient();
+    // garante a aba de saída
+    const meta = await sheets.spreadsheets.get({ spreadsheetId });
+    const exists = meta.data.sheets?.some(s => s.properties?.title === SAIDA_SHEET);
+
+    if (!exists) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: SAIDA_SHEET } } }] }
+      });
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${SAIDA_SHEET}!A1:G1`,
+        valueInputOption: 'RAW',
+        requestBody: {
+          values: [[
+            'DataHora', 'RegistroID', 'Nome', 'DataAusencia', 'Motivos', 'Outros', 'Observacao'
+          ]]
+        }
+      });
+    }
+
+    const id = genId();
+    const agora = new Date();
+    const dataBR = toBR(dataAusencia);
+    const motivos = motivosArr.join(', ');
+
+    // append
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${SAIDA_SHEET}!A:G`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          agora.toLocaleString('pt-BR', { timeZone: TZ }),
+          id,
+          nome,
+          dataBR,
+          motivos,
+          '',            // Outros (se quiser usar depois)
+          observacao
+        ]]
+      }
+    });
+
+    return res.status(200).json({ ok: true, id });
+  } catch (e) {
+    console.error('Erro salvar falta:', e);
+    return res.status(500).json({ ok: false, message: 'Falha ao salvar registro.' });
   }
 }
