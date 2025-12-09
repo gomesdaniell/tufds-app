@@ -12,39 +12,44 @@ const DEFAULT_MOTIVOS = [
   'Outros',
 ];
 
-// normaliza para comparar cabeçalho
+// ===== helpers =====
 function norm(s) {
   return String(s || '')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // tira acentos
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
     .toLowerCase()
-    .replace(/\s+/g, ' ')
+    .replace(/\s+/g, ' ') // substitui tabs, \n etc. por espaço
     .trim();
 }
 
-// encontra índice da coluna por candidatos (match exato ou "includes")
 function findColIndex(headerArr, candidates) {
   const H = headerArr.map(norm);
   const C = candidates.map(norm);
+
+  // 1) procura match exato ou substring
   for (let i = 0; i < H.length; i++) {
     for (let j = 0; j < C.length; j++) {
       if (H[i] === C[j] || H[i].includes(C[j])) return i;
     }
   }
-  return -1;
+  // 2) fallback amplo
+  const ixWide = H.findIndex(h => h.startsWith('nome completo'));
+  return ixWide;
 }
 
-// decide se o status indica ativo
 function isAtivo(value) {
   const v = norm(value);
   return (
-    v === '' || v === 'sim' || v === 'ativo' || v === 'ativo(a)' ||
-    v === 'true' || v === '1'
+    v === '' ||
+    v === 'sim' ||
+    v === 'ativo' ||
+    v === 'ativo(a)' ||
+    v === 'true' ||
+    v === '1'
   );
 }
 
-// yyyy-mm-dd no fuso de Manaus
 function todayISOInManaus() {
-  // pega componentes no TZ desejado
   const fmt = new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Manaus',
     year: 'numeric',
@@ -59,21 +64,29 @@ function todayISOInManaus() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// ===== handler =====
 export default async function handler(req, res) {
   try {
-    // --- 1) Lê a aba Cadastro
     const rows = await readRange('Cadastro!A1:AG');
     if (!rows.length) {
-      return res.status(200).json({ ok: true, nomes: [], motivos: DEFAULT_MOTIVOS, hojeISO: todayISOInManaus() });
+      return res.status(200).json({
+        ok: true,
+        nomes: [],
+        motivos: DEFAULT_MOTIVOS,
+        hojeISO: todayISOInManaus(),
+      });
     }
 
     const header = rows[0].map(h => String(h || '').trim());
+
     const iNome = findColIndex(header, [
-      'nome completo (favor preencher sem abreviacoes)',
       'nome completo (favor preencher sem abreviações)',
+      'nome completo (favor preencher sem abreviacoes)',
+      'nome completo \n(favor preencher sem abreviações)',
       'nome completo',
       'nome',
     ]);
+
     const iAtivo = findColIndex(header, [
       'ativo?',
       'ativo',
@@ -82,7 +95,6 @@ export default async function handler(req, res) {
       'situação',
     ]);
 
-    // fallback: se não achar a coluna de nome, devolve vazio com dica
     if (iNome < 0) {
       console.warn('[faltas/init] Coluna de NOME não encontrada. Header lido:', header);
       return res.status(200).json({
@@ -94,46 +106,64 @@ export default async function handler(req, res) {
       });
     }
 
-    // monta lista de nomes; filtra por ativo somente se a coluna existir
+    // coleta nomes
     let nomes = rows.slice(1)
       .map(r => ({
         nome: String(r[iNome] || '').trim(),
         ativo: iAtivo >= 0 ? r[iAtivo] : '',
       }))
-      .filter(o => o.nome) // só nomes não vazios
-      .filter(o => (iAtivo >= 0 ? isAtivo(o.ativo) : true)) // aplica filtro se existir
+      .filter(o => o.nome)
+      .filter(o => (iAtivo >= 0 ? isAtivo(o.ativo) : true))
       .map(o => o.nome);
 
-    // remove duplicados e ordena alfabeticamente PT-BR
-    nomes = Array.from(new Set(nomes)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    nomes = Array.from(new Set(nomes)).sort((a, b) =>
+      a.localeCompare(b, 'pt-BR')
+    );
 
-    // --- 2) Lê motivos da aba Configurações (opcional)
+    // ===== Lê aba Configurações (motivos personalizados)
     let motivos = DEFAULT_MOTIVOS.slice();
     try {
       const cfg = await readRange('Configurações!A1:B');
       if (cfg.length > 1) {
-        const iKey = 0, iVal = 1;
-        // procura por MOTIVOS_FALTA na col A (case-insensitive)
-        const row = cfg.slice(1).find(r => String(r[iKey] || '').trim().toUpperCase() === 'MOTIVOS_FALTA');
-        if (row && row[iVal]) {
-          const raw = String(row[iVal]);
-          const list = raw.split(/[;,]/).map(s => s.trim()).filter(Boolean);
+        const row = cfg
+          .slice(1)
+          .find(r => String(r[0] || '').trim().toUpperCase() === 'MOTIVOS_FALTA');
+        if (row && row[1]) {
+          const list = String(row[1])
+            .split(/[;,]/)
+            .map(s => s.trim())
+            .filter(Boolean);
           if (list.length) motivos = list;
         }
       }
     } catch (e) {
-      // se der erro, mantemos o default sem quebrar o init
-      console.warn('[faltas/init] Não foi possível ler Configurações!A:B. Usando motivos padrão.', e?.message);
+      console.warn('[faltas/init] Falha ao ler aba Configurações:', e?.message);
     }
+
+    // ===== debug opcional
+    const isDebug = String(req.query?.debug || '') === '1';
+    const debug = isDebug
+      ? {
+          headerRaw: rows[0],
+          headerNorm: rows[0].map(norm),
+          iNome,
+          iAtivo,
+        }
+      : undefined;
 
     return res.status(200).json({
       ok: true,
       nomes,
       motivos,
       hojeISO: todayISOInManaus(),
+      ...(isDebug ? { debug } : {}),
     });
   } catch (e) {
     console.error('[faltas/init] Erro:', e);
-    return res.status(500).json({ ok: false, message: 'Falha ao carregar nomes/motivos.' });
+    return res.status(500).json({
+      ok: false,
+      message: 'Falha ao carregar nomes/motivos.',
+      error: e.message,
+    });
   }
 }
