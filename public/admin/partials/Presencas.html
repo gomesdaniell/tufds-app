@@ -58,10 +58,10 @@
   </div>
 
 <script>
-  // 📍 coordenadas / raio -3.072586021397572,-60.042981419063146 
-  const LAT_TERREIRO   = -3.0744035321383296;
-  const LON_TERREIRO   = -59.99549091003758;
-  const RAIO_MAX_METROS= 300;
+  // 📍 coordenadas / raio -3.072586021397572, -60.042981419063146
+  const LAT_TERREIRO = -3.0744035321383296;
+  const LON_TERREIRO = -59.99549091003758;
+  const RAIO_MAX_METROS = 300;
 
   const elCodigo = document.getElementById('codigo');
   const elNome   = document.getElementById('nome');
@@ -78,7 +78,6 @@
     if (ok) setTimeout(()=> elMsg.style.display='none', 4000);
   }
 
-  // Haversine
   const toRad = g => g * Math.PI/180;
   function distanciaEmMetros(lat1, lon1, lat2, lon2){
     const R=6371000, dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
@@ -95,10 +94,22 @@
     geoStatus.textContent=msgErro; geoStatus.className='muted err';
   }
 
-  // 1) Localização
-  function solicitarLocalizacao(){
+  async function init(){
+    // back-end init
+    try{
+      const res = await fetch('/api/presencas/init.js');
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.message || 'Falha ao carregar');
+      elNome.innerHTML = '<option value="">Selecione...</option>' + (j.nomes||[]).map(n=>`<option>${n}</option>`).join('');
+      elCodigo.textContent = j.codigoAtual || '••••••';
+      startPolling();
+    }catch(e){
+      showMsg(false, 'Erro ao carregar: ' + e.message);
+    }
+
+    // geolocalização
     if (!navigator.geolocation){
-      bloquearFormulario('Seu dispositivo não permite localização. Fale com a direção do terreiro.');
+      bloquearFormulario('Seu dispositivo não permite localização.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -106,50 +117,33 @@
         const { latitude:lat, longitude:lon } = pos.coords;
         const dist = distanciaEmMetros(lat, lon, LAT_TERREIRO, LON_TERREIRO);
         if (dist <= RAIO_MAX_METROS){
-          habilitarFormulario(`✅ Localização confirmada. Distância aproximada: ${dist.toFixed(0)}m do terreiro.`);
+          habilitarFormulario(`✅ Localização confirmada. Distância aprox.: ${dist.toFixed(0)}m.`);
         }else{
-          bloquearFormulario('❌ Você está distante do terreiro. Presença só pode ser registrada no local.');
+          bloquearFormulario('❌ Você está distante do terreiro. Registro apenas no local.');
         }
       },
       err=>{
         console.error(err);
-        bloquearFormulario('❌ Não foi possível obter sua localização. Ative o GPS/permissão e recarregue.');
+        bloquearFormulario('❌ Não foi possível obter sua localização. Ative GPS/permissão e recarregue.');
       },
       { enableHighAccuracy:true, timeout:15000 }
     );
   }
 
-  // 2) Carregar nomes + código atual via google.script.run
-  function init(){
-    google.script.run
-      .withSuccessHandler(data=>{
-        const nomes = data?.nomes || [];
-        elNome.innerHTML = '<option value="">Selecione...</option>' + nomes.map(n=>`<option>${n}</option>`).join('');
-        elCodigo.textContent = data?.codigoAtual || '••••••';
-        startPolling();
-      })
-      .withFailureHandler(e=>{
-        showMsg(false, 'Erro ao carregar: ' + (e?.message || e));
-      })
-      .getPresencaInitData();
-  }
-
-  // 3) Polling do código (5s) via google.script.run
   let pollTimer=null;
   function startPolling(){
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(()=>{
-      google.script.run
-        .withSuccessHandler(st=>{
-          if (st?.codigo) elCodigo.textContent = st.codigo;
-        })
-        .getCodigoState();
+    pollTimer = setInterval(async ()=>{
+      try{
+        const r = await fetch('/api/presencas/state.js');
+        const s = await r.json();
+        if (s?.codigo) elCodigo.textContent = s.codigo;
+      }catch(_){ /* ignora ping com falha */ }
     }, 5000);
   }
 
-  // 4) Enviar presença
-  btnEnviar.addEventListener('click', ()=>{
-    const nome   = (elNome.value||'').trim();
+  btnEnviar.addEventListener('click', async ()=>{
+    const nome = (elNome.value||'').trim();
     const codigo = (elInput.value||'').trim().toUpperCase();
     const observacao = (elObs.value||'').trim();
 
@@ -158,30 +152,30 @@
 
     btnEnviar.disabled=true; btnEnviar.textContent='Enviando...'; elMsg.style.display='none';
 
-    google.script.run
-      .withSuccessHandler(res=>{
-        btnEnviar.disabled=false; btnEnviar.textContent='Registrar Presença';
-        if (res?.ok){
-          showMsg(true,'✅ Presença registrada com sucesso.');
-          elInput.value=''; elObs.value='';
-        }else{
-          showMsg(false,'Erro inesperado ao registrar.');
-        }
-      })
-      .withFailureHandler(err=>{
-        btnEnviar.disabled=false; btnEnviar.textContent='Registrar Presença';
-        showMsg(false,'❌ ' + (err?.message || err));
-      })
-      .salvarPresenca({ nome, codigo, observacao });
+    try{
+      const res = await fetch('/api/presencas/salvar.js', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ nome, codigo, observacao })
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.message || 'Falha ao salvar');
+      showMsg(true,'✅ Presença registrada com sucesso.');
+      elInput.value=''; elObs.value='';
+    }catch(e){
+      showMsg(false,'❌ ' + e.message);
+    }finally{
+      btnEnviar.disabled=false; btnEnviar.textContent='Registrar Presença';
+    }
   });
 
-  // ✅ Bootstrap mesmo sendo partial injetado
-  function bootstrap(){ solicitarLocalizacao(); init(); }
+  // garante que roda mesmo como partial
   if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', bootstrap, { once:true });
+    document.addEventListener('DOMContentLoaded', init, { once:true });
   }else{
-    bootstrap();
+    init();
   }
 </script>
+
 </body>
 </html>
