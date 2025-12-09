@@ -149,6 +149,72 @@ async function loadTab(file, btn){
   </script>
 
   <!-- controlador das abas/partials -->
-  <script src="/public/admin/admin.js"></script>
+   <script>
+    // logout padrão
+    async function logout() {
+      try { await fetch('/api/auth/logout.js', { method: 'POST' }); }
+      finally { window.location.href = '/public/login.html'; }
+    }
+
+    // carrega o conteúdo da aba (mantendo active correto)
+    async function loadTab(file, btn) {
+      const main = document.querySelector('#view');
+      main.innerHTML = '<div style="text-align:center;padding:40px;color:#666">Carregando...</div>';
+
+      // atualiza botões ativos
+      document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+
+      try {
+        const res = await fetch(file);
+        if (!res.ok) throw new Error('Erro ao carregar página');
+        const html = await res.text();
+        main.innerHTML = html;
+
+        // reexecuta scripts internos do partial
+        main.querySelectorAll("script").forEach(oldScript => {
+          const newScript = document.createElement("script");
+          if (oldScript.src) newScript.src = oldScript.src;
+          else newScript.textContent = oldScript.textContent;
+          document.body.appendChild(newScript);
+          oldScript.remove();
+        });
+      } catch (err) {
+        main.innerHTML = `<p style="color:#b91c1c;text-align:center">Falha ao carregar: ${err.message}</p>`;
+      }
+    }
+
+    // inicialização sincronizada com o botão ativo
+    window.addEventListener('DOMContentLoaded', () => {
+      const active = document.querySelector('nav.tabs button.active');
+      if (active) {
+        const defaultFile = {
+          'Transparência Financeira': '/public/admin/partials/FinanceiroView.html',
+          'Registro de Presenças': '/public/admin/partials/Presencas.html',
+          'Controle de Faltas': '/public/admin/partials/Faltas.html',
+          'Aulas de Desenvolvimento': '/public/admin/partials/Aulas.html',
+          'Desenvolvimento Individual': '/public/admin/partials/Desenvolvimento.html',
+          'Aniversariantes': '/public/admin/partials/Aniversariantes.html'
+        }[active.textContent.trim()] || '/public/admin/partials/FinanceiroView.html';
+        loadTab(defaultFile, active);
+      }
+
+      // registra os cliques nas abas
+      document.querySelectorAll('nav.tabs button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const file = {
+            'Transparência Financeira': '/public/admin/partials/FinanceiroView.html',
+            'Registro de Presenças': '/public/admin/partials/Presencas.html',
+            'Controle de Faltas': '/public/admin/partials/Faltas.html',
+            'Aulas de Desenvolvimento': '/public/admin/partials/Aulas.html',
+            'Desenvolvimento Individual': '/public/admin/partials/Desenvolvimento.html',
+            'Aniversariantes': '/public/admin/partials/Aniversariantes.html'
+          }[btn.textContent.trim()];
+          if (file) loadTab(file, btn);
+        });
+      });
+    });
+  </script>
+
 </body>
 </html>
