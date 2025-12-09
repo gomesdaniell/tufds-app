@@ -6,71 +6,36 @@
   <title>Painel Interno – TUFDS</title>
 
   <style>
-    /* ===== base ===== */
     body {
       margin: 0;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background: #f3f4f6;
     }
-    main#view {
-      padding: 24px;
-      min-height: calc(100vh - 70px);
-    }
 
-    /* ===== header (apenas formatação do cabeçalho) ===== */
     header {
-      position: sticky; top: 0; z-index: 10;
       background: #0f766e;
-      color: #fff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    .header-inner{
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 12px 20px 14px;
-    }
-
-    /* primeira linha: título + usuário/sair */
-    .header-row1{
+      color: white;
+      padding: 12px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
+
     header h1 {
       margin: 0;
       font-size: 20px;
       font-weight: 700;
     }
-    .user {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-    }
-    .user-name { font-weight: 600; }
-    .btn-sair {
-      background: #047857;
-      color: #fff;
-      border: none;
-      border-radius: 999px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-    }
-    .btn-sair:hover { background: #065f46; }
 
-    /* segunda linha: tabs como pills brancas */
-    .header-row2{
-      margin-top: 10px;
+    nav.tabs {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
-    nav.tabs { display: contents; } /* mantém tua marcação, só herdando o layout da row */
+
     nav.tabs button {
-      background: #fff;
+      background: white;
       color: #0f766e;
       border: none;
       padding: 8px 16px;
@@ -79,60 +44,81 @@
       cursor: pointer;
       transition: all .2s;
     }
-    nav.tabs button:hover { background: #e0f2f1; }
-    nav.tabs button.active {
-      background: #0f766e;
-      color: #fff;
-      box-shadow: inset 0 0 0 1px #0f766e;
+
+    nav.tabs button:hover {
+      background: #e0f2f1;
     }
 
-    /* responsivo */
-    @media (max-width: 640px){
-      .header-row1 { align-items: flex-start; flex-direction: column; gap: 6px; }
-      .user { align-self: flex-end; }
+    nav.tabs button.active {
+      background: #0f766e;
+      color: white;
+    }
+
+    .user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-name {
+      font-weight: 600;
+    }
+
+    .btn-sair {
+      background: #047857;
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .btn-sair:hover {
+      background: #065f46;
+    }
+
+    main#view {
+      padding: 24px;
+      min-height: calc(100vh - 70px);
     }
   </style>
 </head>
 
 <body>
   <header>
-    <div class="header-inner">
-      <!-- linha 1: título + usuário -->
-      <div class="header-row1">
-        <h1>Painel Interno – TUFDS</h1>
-        <div class="user">
-          <span class="user-name">Daniel Gomes</span>
-          <button class="btn-sair" onclick="logout()">Sair</button>
-        </div>
-      </div>
+    <div>
+      <h1>Painel Interno – TUFDS</h1>
+      <nav class="tabs">
+        <button data-view="financeiro">Transparência Financeira</button>
+        <button data-view="presencas">Registro de Presenças</button>
+        <button data-view="faltas">Controle de Faltas</button>
+        <button data-view="aulas">Aulas de Desenvolvimento</button>
+        <button data-view="desenvolvimento">Desenvolvimento Individual</button>
+        <button data-view="aniversariantes">Aniversariantes</button>
+      </nav>
+    </div>
 
-      <!-- linha 2: tabs -->
-      <div class="header-row2">
-        <nav class="tabs">
-          <button data-view="financeiro">Transparência Financeira</button>
-          <button data-view="presencas">Registro de Presenças</button>
-          <button data-view="faltas">Controle de Faltas</button>
-          <button data-view="aulas">Aulas de Desenvolvimento</button>
-          <button data-view="desenvolvimento">Desenvolvimento Individual</button>
-          <button data-view="aniversariantes">Aniversariantes</button>
-        </nav>
-      </div>
+    <div class="user">
+      <span class="user-name">Daniel Gomes</span>
+      <button class="btn-sair" onclick="logout()">Sair</button>
     </div>
   </header>
 
   <main id="view">
-    <!-- Os partials continuam sendo carregados pelo admin.js -->
+    <!-- Aqui os partials serão carregados dinamicamente -->
   </main>
 
   <script>
-    // mantém teu logout como estava
+    // logout padrão
     async function logout() {
       try { await fetch('/api/auth/logout.js', { method: 'POST' }); }
       finally { window.location.href = '/public/login.html'; }
     }
   </script>
 
-  <!-- mantém teu controlador de abas exatamente como já está -->
+  <!-- Script central que controla as abas e inicializações -->
   <script src="/public/admin/admin.js"></script>
 </body>
 </html>
