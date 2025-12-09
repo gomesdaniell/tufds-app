@@ -1,62 +1,61 @@
-// api/presencas/salvar.js
-import { getSheetsClient, ensureSheet, appendRows } from '../../lib/sheets.js';
+// /api/presencas/salvar.js
+import { google } from 'googleapis';
 
-const TZ = 'America/Manaus';
-// Mesmas coordenadas usadas no front (para gravar a distância no registro)
-const LAT_TERREIRO = -3.072586021397572;
-const LON_TERREIRO = -60.042981419063146;
+const {
+  GOOGLE_SERVICE_ACCOUNT_EMAIL,
+  GOOGLE_PRIVATE_KEY,
+  PLANILHA_ID,                 // "1a1Vu39CcTHtSGU9PUtuyRy76QqIpisM8LUn7Lq4qFx0"
+  ABA_PRESENCAS = 'Presencas',
+  TZ_MANAUS = 'America/Manaus'
+} = process.env;
 
-function toRad(g){ return g * Math.PI / 180; }
-function distanciaEmMetros(lat1, lon1, lat2, lon2){
-  const R = 6371000;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat/2)**2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-    Math.sin(dLon/2)**2;
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+function agoraManaus(){
+  // carimbo amigável em Manaus
+  try{
+    return new Intl.DateTimeFormat('pt-BR', {
+      timeZone: TZ_MANAUS,
+      dateStyle: 'short',
+      timeStyle: 'medium'
+    }).format(new Date());
+  }catch{
+    // fallback
+    return new Date().toISOString();
+  }
 }
 
 export default async function handler(req, res){
   try{
-    if (req.method !== 'POST') {
-      return res.status(405).json({ ok:false, message:'Método não permitido' });
+    if (req.method !== 'POST') return res.status(405).json({ ok:false, message:'Method not allowed' });
+    if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+      return res.status(500).json({ ok:false, message:'Credenciais do Google ausentes' });
+    }
+    if (!PLANILHA_ID) {
+      return res.status(500).json({ ok:false, message:'PLANILHA_ID ausente' });
     }
 
-    const { nome, observacao, lat, lon } = req.body || {};
-    if (!nome) return res.status(400).json({ ok:false, message:'Informe o nome.' });
+    const { nome } = req.body || {};
+    if (!nome) return res.status(400).json({ ok:false, message:'Nome obrigatório' });
 
-    // não obrigamos lat/lon no backend (cliente já bloqueia); mas gravamos se veio
-    const latNum = (lat==null ? null : Number(lat));
-    const lonNum = (lon==null ? null : Number(lon));
-    let dist = null;
-    if (!Number.isNaN(latNum) && !Number.isNaN(lonNum) && latNum !== null && lonNum !== null){
-      dist = distanciaEmMetros(latNum, lonNum, LAT_TERREIRO, LON_TERREIRO);
-    }
+    const auth = new google.auth.JWT(
+      GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      null,
+      GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      ['https://www.googleapis.com/auth/spreadsheets']
+    );
+    const sheets = google.sheets({ version:'v4', auth });
 
-    // garante aba e cabeçalho
-    await ensureSheet('Presencas', ['DataHora', 'Nome', 'Latitude', 'Longitude', 'Distancia_m', 'Observacao']);
+    const timestamp = agoraManaus();
 
-    // Data/hora Manaus (formato dd/MM/yyyy HH:mm:ss)
-    const now = new Date();
-    const dataHora = new Intl.DateTimeFormat('pt-BR', {
-      timeZone: TZ, year:'numeric', month:'2-digit', day:'2-digit',
-      hour:'2-digit', minute:'2-digit', second:'2-digit'
-    }).format(now).replace(',', '');
-
-    await appendRows('Presencas!A1', [[
-      dataHora,
-      String(nome || ''),
-      latNum==null ? '' : latNum,
-      lonNum==null ? '' : lonNum,
-      dist==null ? '' : Math.round(dist),
-      String(observacao || '')
-    ]]);
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: PLANILHA_ID,
+      range: `${ABA_PRESENCAS}!A:B`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[ timestamp, nome ]] }
+    });
 
     return res.status(200).json({ ok:true });
   }catch(err){
-    console.error('presencas/salvar erro:', err);
-    return res.status(500).json({ ok:false, message: err.message || String(err) });
+    console.error(err);
+    return res.status(500).json({ ok:false, message: err.message || 'Erro ao salvar presença' });
   }
 }
