@@ -15,8 +15,6 @@
     background:var(--bg); color:var(--text);
     display:flex; flex-direction:column; min-height:100vh;
   }
-
-  /* Cabeçalho fixo */
   header{
     background:var(--accent);
     color:#fff;
@@ -34,8 +32,6 @@
     padding:6px 12px; color:#fff; cursor:pointer;
   }
   button.logout:hover{ background:#fff3 }
-
-  /* Menu de abas */
   nav{
     background:#fff; border-bottom:1px solid var(--border);
     display:flex; gap:10px; padding:10px 16px;
@@ -51,15 +47,11 @@
   nav button.active{
     background:var(--accent); color:#fff; border-color:var(--accent);
   }
-
-  /* Conteúdo das abas */
   main{
     flex:1;
     padding:24px;
     max-width:1200px; margin:0 auto;
   }
-
-  /* Loader simples */
   #loader{
     text-align:center; padding:40px; color:var(--muted);
   }
@@ -120,38 +112,21 @@ async function loadTab(file, btn){
     </div>
   </header>
 
- <nav class="tabs" id="tabs">
-  <button data-file="/public/admin/partials/FinanceiroView.html" data-default>Transparência Financeira</button>
-  <button data-file="/public/admin/partials/Presencas.html">Registro de Presenças</button>
-  <button data-file="/public/admin/partials/Faltas.html">Controle de Faltas</button>
-  <button data-file="/public/admin/partials/Aulas.html">Aulas de Desenvolvimento</button>
-  <button data-file="/public/admin/partials/Desenvolvimento.html">Desenvolvimento Individual</button>
-  <button data-file="/public/admin/partials/Aniversariantes.html">Aniversariantes</button>
-</nav>
+  <nav class="tabs" id="tabs">
+    <button data-file="/public/admin/partials/FinanceiroView.html" data-default>Transparência Financeira</button>
+    <!-- NOVO BOTÃO (apenas inserido, sem alterar layout) -->
+    <button data-file="/public/admin/partials/ReceitasDespesas.html">Lançamentos</button>
+    <!-- demais já existentes -->
+    <button data-file="/public/admin/partials/Presencas.html">Registro de Presenças</button>
+    <button data-file="/public/admin/partials/Faltas.html">Controle de Faltas</button>
+    <button data-file="/public/admin/partials/Aulas.html">Aulas de Desenvolvimento</button>
+    <button data-file="/public/admin/partials/Desenvolvimento.html">Desenvolvimento Individual</button>
+    <button data-file="/public/admin/partials/Aniversariantes.html">Aniversariantes</button>
+  </nav>
 
-
-   <main id="view">
-    <!-- os partials carregam aqui -->
-  </main>
+  <main id="view"></main>
 
   <script>
-    // mantém o highlight da aba ativa (admin.js pode também trocar essa classe)
-    document.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.tab-btn');
-      if (!btn) return;
-      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-
-    async function logout(){
-      try{ await fetch('/api/auth/logout.js',{method:'POST'}); }
-      finally{ window.location.href='/public/login.html'; }
-    }
-  </script>
-
-  <!-- controlador das abas/partials -->
-   <script>
-  // garante sessão; não altera estilo
   (async () => {
     try {
       const r = await fetch('/api/auth/me.js');
@@ -179,7 +154,6 @@ async function loadTab(file, btn){
     activeBtn = btn;
   }
 
-  // Executa scripts embutidos do partial
   function executeInlineScripts(container) {
     container.querySelectorAll('script').forEach(oldS => {
       const s = document.createElement('script');
@@ -202,18 +176,15 @@ async function loadTab(file, btn){
       const html = await res.text();
       main.innerHTML = html;
       executeInlineScripts(main);
-      // guarda “qual está aberto” (evita reprocessar no primeiro clique)
       main.dataset.current = file;
     } catch (e) {
       main.innerHTML = '<div style="padding:24px;color:#b91c1c;">Não foi possível carregar o módulo.</div>';
     }
   }
 
-  // Delegação de cliques nas abas
   nav.addEventListener('click', (ev) => {
     const btn = ev.target.closest('button[data-file]');
     if (!btn) return;
-    // evita re-carregar se já estiver nessa
     if (main.dataset.current === btn.getAttribute('data-file')) {
       setActive(btn);
       return;
@@ -221,13 +192,10 @@ async function loadTab(file, btn){
     loadTab(btn);
   });
 
-  // Carrega a aba padrão ao abrir (Transparência)
   window.addEventListener('DOMContentLoaded', () => {
     const first = nav.querySelector('button[data-default]') || nav.querySelector('button[data-file]');
     if (first) loadTab(first);
   });
-</script>
-
-
+  </script>
 </body>
 </html>
