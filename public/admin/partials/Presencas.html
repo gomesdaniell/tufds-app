@@ -3,15 +3,13 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Marcação de Presença – TUFDS</title>
+<title>Registro de Presença – TUFDS</title>
 <style>
   body{font-family:Arial,sans-serif;background:#f8f9fb;margin:0;color:#333}
-  .container{max-width:820px;margin:28px auto;background:#fff;padding:26px;border-radius:16px;box-shadow:0 0 10px rgba(0,0,0,.08)}
+  .container{max-width:680px;margin:28px auto;background:#fff;padding:22px;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
   h1{margin:0 0 14px}
   label{font-weight:700;display:block;margin:10px 0 6px}
-  select,input[type=date]{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px}
-  .row{display:flex;gap:12px;flex-wrap:wrap}
-  .row>*{flex:1 1 240px}
+  select{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:14px}
   .actions{display:flex;justify-content:flex-end;margin-top:14px}
   button{background:#111827;color:#fff;border:0;padding:10px 18px;border-radius:8px;cursor:pointer;font-weight:700}
   button:hover{background:#333}
@@ -21,18 +19,11 @@
 </style>
 </head>
 <body>
-  <div id="faltas-root" class="container">
-    <h1>Marcação de Presença – TUFDS</h1>
+  <div id="presencas-root" class="container">
+    <h1>Registro de Presença – TUFDS</h1>
 
     <label>Nome</label>
     <select id="nome"></select>
-
-    <div class="row">
-      <div>
-        <label>Data da presença</label>
-        <input type="date" id="dataAusencia"/>
-      </div>
-    </div>
 
     <div class="actions">
       <button id="enviar">Registrar presença</button>
@@ -43,30 +34,26 @@
 
 <script>
 (() => {
-  const ROOT = document.getElementById('faltas-root');
+  const ROOT = document.getElementById('presencas-root');
   if (!ROOT || ROOT.dataset.inited === '1') return;
   ROOT.dataset.inited = '1';
 
-  let NOMES = [];
-  const $ = (sel) => ROOT.querySelector(sel);
+  const $ = sel => ROOT.querySelector(sel);
 
+  // Envio
   $('#enviar').addEventListener('click', async () => {
     const nome = $('#nome').value;
-    const dataAusencia = $('#dataAusencia').value; 
-
     if (!nome) return alert('Selecione o nome.');
-    if (!dataAusencia) return alert('Informe a data da ausência.');
 
-    const payload = { nome, dataAusencia };
     const btn = $('#enviar'), msg = $('#msg');
     btn.disabled = true; btn.textContent = 'Enviando...';
     msg.style.display = 'none'; msg.className = ''; msg.textContent = '';
 
     try {
-      const res = await fetch('/api/faltas/salvar.js', {
+      const res = await fetch('/api/presencas/salvar.js', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ nome })
       });
 
       const raw = await res.text();
@@ -76,38 +63,33 @@
 
       if (!res.ok || !data.ok) throw new Error(data?.message || 'Falha ao salvar.');
 
-      btn.disabled = false; btn.textContent = 'Registrar falta';
+      btn.disabled = false; btn.textContent = 'Registrar presença';
       msg.className = 'ok';
-      msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${data.id || data.registroID || ''}`;
+      msg.textContent = '✅ Presença registrada com sucesso!';
       msg.style.display = 'block';
     } catch (err) {
-      btn.disabled = false; btn.textContent = 'Registrar falta';
+      btn.disabled = false; btn.textContent = 'Registrar presença';
       msg.className = 'err';
       msg.textContent = '❌ ' + (err.message || 'Erro ao salvar');
       msg.style.display = 'block';
     }
   });
 
+  // Init – carrega nomes da aba Cadastro
   (async () => {
     const msg = $('#msg');
     try {
-      const r = await fetch('/api/faltas/init.js');
+      const r = await fetch('/api/presencas/init.js');
       const j = await r.json();
-      if (!j.ok) throw new Error(j.message || 'Erro ao carregar init');
+      if (!j.ok) throw new Error(j.message || 'Erro ao carregar nomes');
 
-      NOMES = Array.isArray(j.nomes) ? j.nomes : [];
-
+      const nomes = Array.isArray(j.nomes) ? j.nomes : [];
       const sel = $('#nome');
       sel.innerHTML = '<option value="">Selecione...</option>' +
-        NOMES.map(n => `<option>${n}</option>`).join('');
-
-      if (j.hojeISO) {
-        $('#dataAusencia').value = j.hojeISO;
-        $('#dataAusencia').dataset.hoje = j.hojeISO;
-      }
+        nomes.map(n => `<option>${n}</option>`).join('');
     } catch (e) {
       msg.className = 'err';
-      msg.textContent = '❌ Erro ao carregar dados iniciais: ' + (e.message || e);
+      msg.textContent = '❌ Erro ao carregar nomes: ' + (e.message || e);
       msg.style.display = 'block';
     }
   })();
