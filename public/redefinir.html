@@ -22,11 +22,17 @@
     width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
     font-size:15px; outline:none;
   }
-  .actions{ margin-top:18px; display:flex; gap:8px; align-items:center }
+  .actions{ margin-top:18px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   button{
     background:var(--accent); color:#fff; border:0; border-radius:999px;
     padding:10px 16px; font-size:15px; cursor:pointer;
   }
+  button[disabled]{ opacity:.7; cursor:default }
+  #btnVoltar{
+    background:transparent; color:var(--accent);
+    border:1px solid var(--accent);
+  }
+  #btnVoltar:hover{ background:#e6f5f3; }
   .err{ color:#b91c1c; margin-top:10px; min-height:22px; }
   .ok{ color:#15803d; margin-top:10px; min-height:22px; }
 </style>
@@ -46,25 +52,23 @@
 
     <div class="actions">
       <button id="btn" type="submit">Atualizar senha</button>
+      <button id="btnVoltar" type="button" style="display:none">Voltar ao login</button>
       <span id="status" class="muted"></span>
     </div>
     <div id="msg" class=""></div>
   </form>
 </div>
 
-<div class="actions">
-  <button id="btnReset" type="button">Atualizar senha</button>
-  <button id="btnVoltar" type="button" style="display:none">Voltar ao login</button>
-  <span id="status" class="muted"></span>
-</div>
-<div id="err" class="err"></div>
-
-  
 <script>
 const form = document.getElementById('resetForm');
 const btn  = document.getElementById('btn');
+const btnVoltar = document.getElementById('btnVoltar');
 const msg  = document.getElementById('msg');
 const st   = document.getElementById('status');
+
+btnVoltar.addEventListener('click', () => {
+  window.location.href = '/public/login.html';
+});
 
 form.addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -73,13 +77,13 @@ form.addEventListener('submit', async (ev) => {
   btn.disabled = true;
 
   const email = document.getElementById('email').value.trim();
-  const novaSenha = document.getElementById('nova').value;  // id do campo "Nova senha"
+  const novaSenha = document.getElementById('nova').value;
 
   try {
-    const res = await fetch('/api/auth/reset.js', {   // <--- AQUI o POST
+    const res = await fetch('/api/auth/reset.js', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, novaSenha })      // envia e-mail e senha
+      body: JSON.stringify({ email, novaSenha })
     });
 
     const data = await res.json().catch(()=>({}));
@@ -88,16 +92,22 @@ form.addEventListener('submit', async (ev) => {
     msg.className = 'ok';
     msg.textContent = '✅ Senha atualizada com sucesso! Você já pode fazer login.';
     st.textContent = '';
+
+    // mostra o botão "Voltar ao login"
+    btnVoltar.style.display = 'inline-block';
+
+    // bloqueia campos após redefinição
+    document.getElementById('email').readOnly = true;
+    document.getElementById('nova').readOnly = true;
+    btn.style.display = 'none';
   } catch (e) {
     msg.className = 'err';
     msg.textContent = '❌ ' + (e.message || 'Falha na redefinição.');
     st.textContent = '';
-  } finally {
     btn.disabled = false;
   }
 });
 </script>
-
 
 </body>
 </html>
