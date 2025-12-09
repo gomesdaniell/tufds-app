@@ -82,11 +82,13 @@
     $('#obsCount').textContent = fmtCount(n);
   });
 
+  // SUBMIT
   $('#enviar').addEventListener('click', async () => {
     const nome = $('#nome').value;
-    const dataAusencia = $('#dataAusencia').value;
+    const dataAusencia = $('#dataAusencia').value;            // yyyy-mm-dd
     const observacao = $('#observacao').value.trim();
-    const motivos = Array.from(document.querySelectorAll('#motivosBox input:checked')).map(ch => ch.value);
+    const motivos = Array.from(document.querySelectorAll('#motivosBox input[type=checkbox]:checked'))
+      .map(ch => ch.value);
 
     if (!nome) return alert('Selecione o nome.');
     if (!dataAusencia) return alert('Informe a data da ausência.');
@@ -105,38 +107,56 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.message || 'Erro ao salvar');
+
+      // Lê como texto e tenta converter para JSON (evita erro “Unexpected token”)
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); }
+      catch { throw new Error(raw || 'Resposta não-JSON do servidor.'); }
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.message || 'Falha ao salvar.');
+      }
 
       btn.disabled = false; btn.textContent = 'Registrar falta';
       msg.className = 'ok';
-      msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${j.registroID}`;
+      msg.textContent = `✅ Falta registrada com sucesso! Protocolo: ${data.id}`;
       msg.style.display = 'block';
 
-      $('#dataAusencia').value = $('#dataAusencia').dataset.hoje || '';
+      // limpa campos
       $('#observacao').value = '';
       $('#obsCount').textContent = '0';
-      document.querySelectorAll('#motivosBox input').forEach(ch => ch.checked = false);
+      document.querySelectorAll('#motivosBox input[type=checkbox]').forEach(ch => ch.checked = false);
+      // mantém a data preenchida; se preferir resetar para hoje, descomente:
+      // $('#dataAusencia').value = $('#dataAusencia').dataset.hoje || '';
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Registrar falta';
       msg.className = 'err';
-      msg.textContent = '❌ Erro: ' + err.message;
+      msg.textContent = '❌ ' + (err.message || 'Erro ao salvar');
       msg.style.display = 'block';
     }
   });
 
+  // INIT
   document.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await fetch('/api/faltas/init.js');
       const j = await res.json();
       if (!j.ok) throw new Error(j.message || 'Erro ao carregar init');
-      NOMES = j.nomes || [];
+
+      NOMES   = j.nomes   || [];
       MOTIVOS = j.motivos || [];
+
       const sel = $('#nome');
-      sel.innerHTML = '<option value="">Selecione...</option>' + NOMES.map(n => `<option>${n}</option>`).join('');
+      sel.innerHTML = '<option value="">Selecione...</option>' +
+        NOMES.map(n => `<option>${n}</option>`).join('');
+
       renderMotivos();
-      $('#dataAusencia').value = j.hojeISO;
-      $('#dataAusencia').dataset.hoje = j.hojeISO;
+
+      if (j.hojeISO) {
+        $('#dataAusencia').value = j.hojeISO;          // yyyy-mm-dd
+        $('#dataAusencia').dataset.hoje = j.hojeISO;
+      }
     } catch (err) {
       alert('Erro ao carregar dados iniciais: ' + err.message);
     }
