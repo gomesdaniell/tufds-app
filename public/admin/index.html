@@ -1,160 +1,138 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Painel Interno – TUFDS</title>
-<style>
-  :root{
-    --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280;
-    --border:#e5e7eb; --accent:#0f766e; --accent-2:#0d5f57;
-  }
-  *{ box-sizing:border-box }
-  html,body{ height:100% }
-  body{
-    margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto;
-    background:var(--bg); color:var(--text);
-    display:flex; flex-direction:column; min-height:100vh;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel Interno – TUFDS</title>
 
-  /* Cabeçalho fixo (visual igual ao anterior, mas com container centralizado) */
-  header{
-    position:sticky; top:0; z-index:20;
-    background:var(--accent); color:#fff;
-    box-shadow:0 2px 6px rgba(0,0,0,.1);
-  }
-  .hdr{
-    max-width:1200px; margin:0 auto;
-    padding:16px 24px;
-    display:flex; justify-content:space-between; align-items:center;
-    gap:12px;
-  }
-  header h1{ margin:0; font-size:20px; font-weight:800 }
+  <style>
+    /* ===== base ===== */
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #f3f4f6;
+    }
+    main#view {
+      padding: 24px;
+      min-height: calc(100vh - 70px);
+    }
 
-  .user{ display:flex; align-items:center; gap:10px; font-size:15px; white-space:nowrap }
-  button.logout{
-    background:#fff2; border:0; border-radius:999px;
-    padding:6px 12px; color:#fff; cursor:pointer; font-weight:700;
-  }
-  button.logout:hover{ background:#fff3 }
+    /* ===== header (apenas formatação do cabeçalho) ===== */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: #0f766e;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .header-inner{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 12px 20px 14px;
+    }
 
-  /* Barra de abas (pills) */
-  .tabs-wrap{
-    background:#fff; border-bottom:1px solid var(--border);
-  }
-  nav{
-    max-width:1200px; margin:0 auto;
-    display:flex; flex-wrap:wrap; gap:10px; padding:10px 16px;
-  }
-  nav button{
-    background:#fff; color:var(--accent);
-    border:1px solid var(--border);
-    border-radius:999px; padding:10px 16px;
-    cursor:pointer; font-weight:700; transition:.15s;
-  }
-  nav button:hover{ background:#e6f4f3; border-color:#d6eae8 }
-  nav button.active{
-    background:var(--accent); color:#fff; border-color:var(--accent);
-  }
+    /* primeira linha: título + usuário/sair */
+    .header-row1{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .user {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+    .user-name { font-weight: 600; }
+    .btn-sair {
+      background: #047857;
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .btn-sair:hover { background: #065f46; }
 
-  /* Conteúdo das abas */
-  main{
-    flex:1;
-    padding:24px 20px 40px;
-    max-width:1200px; margin:0 auto;
-  }
+    /* segunda linha: tabs como pills brancas */
+    .header-row2{
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    nav.tabs { display: contents; } /* mantém tua marcação, só herdando o layout da row */
+    nav.tabs button {
+      background: #fff;
+      color: #0f766e;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    nav.tabs button:hover { background: #e0f2f1; }
+    nav.tabs button.active {
+      background: #0f766e;
+      color: #fff;
+      box-shadow: inset 0 0 0 1px #0f766e;
+    }
 
-  /* Loader simples */
-  #loader{ text-align:center; padding:40px; color:var(--muted) }
-
-  /* Responsivo */
-  @media (max-width:720px){
-    .hdr{ padding:14px 16px }
-    nav{ padding:10px 12px }
-  }
-</style>
-
-<!-- ====== CONFIGURAÇÃO (inalterada) ====== -->
-<script>
-(async () => {
-  try {
-    const res = await fetch('/api/auth/me.js');
-    const data = await res.json();
-    if (!data.ok) throw new Error();
-    document.getElementById('user-name').textContent = data.user.nome || data.user.email;
-  } catch {
-    window.location.href = '/public/login.html';
-  }
-})();
-
-async function sair(){
-  try{ await fetch('/api/auth/logout.js',{method:'POST'}); }
-  finally{ window.location.href = '/public/login.html'; }
-}
-
-// Carrega o conteúdo de uma aba (partial HTML)
-async function loadTab(file, btn){
-  const main = document.querySelector('main');
-  main.innerHTML = '<div id="loader">Carregando...</div>';
-
-  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-
-  try{
-    const res = await fetch(file);
-    if(!res.ok) throw new Error('Erro ao carregar.');
-    const html = await res.text();
-    main.innerHTML = html;
-
-    // executa <script> do partial
-    main.querySelectorAll("script").forEach(oldScript => {
-      const newScript = document.createElement("script");
-      if (oldScript.src) newScript.src = oldScript.src;
-      else newScript.textContent = oldScript.textContent;
-      document.body.appendChild(newScript);
-      oldScript.remove();
-    });
-
-  }catch(e){
-    main.innerHTML = '<p style="color:#b91c1c">Falha ao carregar o módulo.</p>';
-  }
-}
-</script>
+    /* responsivo */
+    @media (max-width: 640px){
+      .header-row1 { align-items: flex-start; flex-direction: column; gap: 6px; }
+      .user { align-self: flex-end; }
+    }
+  </style>
 </head>
 
 <body>
   <header>
-    <div class="hdr">
-      <h1>Painel Interno – TUFDS</h1>
-      <div class="user">
-        <span id="user-name">Filho do Sagrado</span>
-        <button class="logout" onclick="sair()">Sair</button>
+    <div class="header-inner">
+      <!-- linha 1: título + usuário -->
+      <div class="header-row1">
+        <h1>Painel Interno – TUFDS</h1>
+        <div class="user">
+          <span class="user-name">Daniel Gomes</span>
+          <button class="btn-sair" onclick="logout()">Sair</button>
+        </div>
+      </div>
+
+      <!-- linha 2: tabs -->
+      <div class="header-row2">
+        <nav class="tabs">
+          <button data-view="financeiro">Transparência Financeira</button>
+          <button data-view="presencas">Registro de Presenças</button>
+          <button data-view="faltas">Controle de Faltas</button>
+          <button data-view="aulas">Aulas de Desenvolvimento</button>
+          <button data-view="desenvolvimento">Desenvolvimento Individual</button>
+          <button data-view="aniversariantes">Aniversariantes</button>
+        </nav>
       </div>
     </div>
   </header>
 
-  <div class="tabs-wrap">
-    <nav>
-      <button class="active" onclick="loadTab('/public/admin/partials/FinanceiroView.html', this)">Transparência Financeira</button>
-      <button onclick="loadTab('/public/admin/partials/Presencas.html', this)">Registro de Presenças</button>
-      <button onclick="loadTab('/public/admin/partials/Faltas.html', this)">Controle de Faltas</button>
-      <button onclick="loadTab('/public/admin/partials/Aulas.html', this)">Aulas de Desenvolvimento</button>
-      <button onclick="loadTab('/public/admin/partials/Desenvolvimento.html', this)">Desenvolvimento Individual</button>
-      <button onclick="loadTab('/public/admin/partials/Aniversariantes.html', this)">Aniversariantes</button>
-    </nav>
-  </div>
-
-  <main id="content">
-    <div id="loader">Carregando módulo padrão...</div>
+  <main id="view">
+    <!-- Os partials continuam sendo carregados pelo admin.js -->
   </main>
 
   <script>
-    // Carrega a aba padrão ao abrir
-    window.addEventListener('DOMContentLoaded',()=>{
-      const first = document.querySelector('nav button.active');
-      loadTab('/public/admin/partials/FinanceiroView.html', first);
-    });
+    // mantém teu logout como estava
+    async function logout() {
+      try { await fetch('/api/auth/logout.js', { method: 'POST' }); }
+      finally { window.location.href = '/public/login.html'; }
+    }
   </script>
+
+  <!-- mantém teu controlador de abas exatamente como já está -->
+  <script src="/public/admin/admin.js"></script>
 </body>
 </html>
-
