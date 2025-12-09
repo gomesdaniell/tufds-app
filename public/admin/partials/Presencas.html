@@ -58,15 +58,10 @@
   </div>
 
 <script>
-  // coordenadas / raio -3.072586021397572,-60.042981419063146 
-  const LAT_TERREIRO = -3.0743713919553697;
-  const LON_TERREIRO = -59.99540507934922;
-  const RAIO_MAX_METROS = 300;
-
-  // endpoints (mesmo padrão dos outros módulos)
-  const EP_INIT   = '/api/presencas/init.js';
-  const EP_COD    = '/api/presencas/codigo.js';
-  const EP_SALVAR = '/api/presencas/salvar.js';
+  // 📍 coordenadas / raio -3.072586021397572,-60.042981419063146 
+  const LAT_TERREIRO   = -3.0744035321383296;
+  const LON_TERREIRO   = -59.99549091003758;
+  const RAIO_MAX_METROS= 300;
 
   const elCodigo = document.getElementById('codigo');
   const elNome   = document.getElementById('nome');
@@ -83,141 +78,108 @@
     if (ok) setTimeout(()=> elMsg.style.display='none', 4000);
   }
 
-  // haversine
-  const toRad = g => g * Math.PI / 180;
+  // Haversine
+  const toRad = g => g * Math.PI/180;
   function distanciaEmMetros(lat1, lon1, lat2, lon2){
-    const R = 6371000;
-    const dLat = toRad(lat2 - lat1);
-    const dLon = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat/2)**2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLon/2)**2;
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+    const R=6371000, dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+    const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return 2*R*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
 
   function habilitarFormulario(msgOk){
-    elNome.disabled = false;
-    elInput.disabled = false;
-    elObs.disabled = false;
-    btnEnviar.disabled = false;
-    if (msgOk){
-      geoStatus.textContent = msgOk;
-      geoStatus.className = 'muted ok';
-    }
+    elNome.disabled=false; elInput.disabled=false; elObs.disabled=false; btnEnviar.disabled=false;
+    geoStatus.textContent=msgOk; geoStatus.className='muted ok';
   }
-
   function bloquearFormulario(msgErro){
-    elNome.disabled = true;
-    elInput.disabled = true;
-    elObs.disabled = true;
-    btnEnviar.disabled = true;
-    geoStatus.textContent = msgErro;
-    geoStatus.className = 'muted err';
+    elNome.disabled=true; elInput.disabled=true; elObs.disabled=true; btnEnviar.disabled=true;
+    geoStatus.textContent=msgErro; geoStatus.className='muted err';
   }
 
-  // localização
+  // 1) Localização
   function solicitarLocalizacao(){
     if (!navigator.geolocation){
       bloquearFormulario('Seu dispositivo não permite localização. Fale com a direção do terreiro.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      pos => {
-        const { latitude: lat, longitude: lon } = pos.coords;
+      pos=>{
+        const { latitude:lat, longitude:lon } = pos.coords;
         const dist = distanciaEmMetros(lat, lon, LAT_TERREIRO, LON_TERREIRO);
         if (dist <= RAIO_MAX_METROS){
           habilitarFormulario(`✅ Localização confirmada. Distância aproximada: ${dist.toFixed(0)}m do terreiro.`);
-        } else {
-          bloquearFormulario('❌ Sua localização está muito distante do terreiro. Presença só pode ser registrada já no terreiro.');
+        }else{
+          bloquearFormulario('❌ Você está distante do terreiro. Presença só pode ser registrada no local.');
         }
       },
-      err => {
+      err=>{
         console.error(err);
-        bloquearFormulario('❌ Não foi possível obter sua localização. Ative o GPS/permissão de localização e recarregue a página.');
+        bloquearFormulario('❌ Não foi possível obter sua localização. Ative o GPS/permissão e recarregue.');
       },
       { enableHighAccuracy:true, timeout:15000 }
     );
   }
 
-  // fetch helpers (robustos contra HTML de erro)
-  async function getJSON(url){
-    const r = await fetch(url, { cache:'no-store' });
-    const t = await r.text();
-    let j; try { j = JSON.parse(t); } catch { throw new Error(t || 'Resposta não-JSON'); }
-    if (!r.ok || j.ok === false) throw new Error(j.message || 'Erro na requisição');
-    return j;
-  }
-  async function postJSON(url, body){
-    const r = await fetch(url, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(body || {})
-    });
-    const t = await r.text();
-    let j; try { j = JSON.parse(t); } catch { throw new Error(t || 'Resposta não-JSON'); }
-    if (!r.ok || j.ok === false) throw new Error(j.message || 'Erro na requisição');
-    return j;
+  // 2) Carregar nomes + código atual via google.script.run
+  function init(){
+    google.script.run
+      .withSuccessHandler(data=>{
+        const nomes = data?.nomes || [];
+        elNome.innerHTML = '<option value="">Selecione...</option>' + nomes.map(n=>`<option>${n}</option>`).join('');
+        elCodigo.textContent = data?.codigoAtual || '••••••';
+        startPolling();
+      })
+      .withFailureHandler(e=>{
+        showMsg(false, 'Erro ao carregar: ' + (e?.message || e));
+      })
+      .getPresencaInitData();
   }
 
-  // init (nomes + código)
-  async function init(){
-    try{
-      const data = await getJSON(EP_INIT);
-      const nomes = data.nomes || [];
-      elNome.innerHTML = '<option value="">Selecione...</option>' + nomes.map(n=>`<option>${n}</option>`).join('');
-      elCodigo.textContent = data.codigoAtual || '••••••';
-      startPolling();
-    }catch(e){
-      showMsg(false, 'Erro ao carregar: ' + e.message);
-    }
-  }
-
-  // polling do código (5s)
-  let pollTimer = null;
+  // 3) Polling do código (5s) via google.script.run
+  let pollTimer=null;
   function startPolling(){
     if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(async ()=>{
-      try{
-        const st = await getJSON(EP_COD);
-        if (st && st.codigo) elCodigo.textContent = st.codigo;
-      }catch(e){ /* silencioso */ }
+    pollTimer = setInterval(()=>{
+      google.script.run
+        .withSuccessHandler(st=>{
+          if (st?.codigo) elCodigo.textContent = st.codigo;
+        })
+        .getCodigoState();
     }, 5000);
   }
 
-  // enviar presença
-  btnEnviar.addEventListener('click', async ()=>{
-    const nome = (elNome.value || '').trim();
-    const codigo = (elInput.value || '').trim().toUpperCase();
-    const observacao = (elObs.value || '').trim();
+  // 4) Enviar presença
+  btnEnviar.addEventListener('click', ()=>{
+    const nome   = (elNome.value||'').trim();
+    const codigo = (elInput.value||'').trim().toUpperCase();
+    const observacao = (elObs.value||'').trim();
 
-    if (!nome)   return showMsg(false, 'Selecione o seu nome.');
-    if (!codigo) return showMsg(false, 'Informe o código da gira.');
+    if (!nome)   return showMsg(false,'Selecione o seu nome.');
+    if (!codigo) return showMsg(false,'Informe o código da gira.');
 
-    btnEnviar.disabled = true; btnEnviar.textContent = 'Enviando...';
-    elMsg.style.display = 'none';
+    btnEnviar.disabled=true; btnEnviar.textContent='Enviando...'; elMsg.style.display='none';
 
-    try{
-      await postJSON(EP_SALVAR, { nome, codigo, observacao });
-      btnEnviar.disabled = false; btnEnviar.textContent = 'Registrar Presença';
-      showMsg(true, '✅ Presença registrada com sucesso.');
-      elInput.value = '';
-      elObs.value   = '';
-    }catch(e){
-      btnEnviar.disabled = false; btnEnviar.textContent = 'Registrar Presença';
-      showMsg(false, '❌ ' + e.message);
-    }
+    google.script.run
+      .withSuccessHandler(res=>{
+        btnEnviar.disabled=false; btnEnviar.textContent='Registrar Presença';
+        if (res?.ok){
+          showMsg(true,'✅ Presença registrada com sucesso.');
+          elInput.value=''; elObs.value='';
+        }else{
+          showMsg(false,'Erro inesperado ao registrar.');
+        }
+      })
+      .withFailureHandler(err=>{
+        btnEnviar.disabled=false; btnEnviar.textContent='Registrar Presença';
+        showMsg(false,'❌ ' + (err?.message || err));
+      })
+      .salvarPresenca({ nome, codigo, observacao });
   });
 
-  // ✅ bootstrap também quando o partial é injetado
-  function bootstrap(){
-    solicitarLocalizacao();
-    init();
-  }
-  if (document.readyState === 'loading') {
+  // ✅ Bootstrap mesmo sendo partial injetado
+  function bootstrap(){ solicitarLocalizacao(); init(); }
+  if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', bootstrap, { once:true });
-  } else {
+  }else{
     bootstrap();
   }
 </script>
