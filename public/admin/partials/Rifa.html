@@ -67,6 +67,7 @@
   </form>
 </dialog>
 
+<!-- ADICIONE ESTE SCRIPT APÓS O SCRIPT EXISTENTE -->
 <script>
 (() => {
   const ROOT = document.getElementById('rifa-root');
@@ -106,39 +107,35 @@
   }
 
   function normalizeInit(d){
-    const out = { total:0, vendidos:0, livres:0, numeros:[] };
+  const out = { total:0, vendidos:0, livres:0, numeros:[] };
 
-    if (Array.isArray(d?.numeros)) {
-      out.numeros = d.numeros.map(x => ({
-        numero: Number(x.numero ?? x.num ?? x.n ?? x.id),
-        nome: (x.nome ?? x.who ?? x.comprador ?? '').toString().trim() || null
-      })).filter(x => Number.isFinite(x.numero));
-    } else if (Array.isArray(d)) {
-      out.numeros = d.map((x,i) => {
-        if (typeof x === 'number') return { numero: x, nome: null };
-        const n = Number(x?.numero ?? x?.num ?? x?.n ?? (i+1));
-        const who = (x?.nome ?? x?.who ?? x?.comprador ?? '').toString().trim() || null;
-        return { numero:n, nome:who };
-      });
-    }
-
-    out.total = Number(d?.total ?? out.numeros.length);
-
-    if ((!out.numeros || out.numeros.length === 0) && out.total > 0) {
-      out.numeros = Array.from({length: out.total}, (_,i) => ({ numero: i+1, nome: null }));
-    }
-
-    out.vendidos = Number(d?.vendidos ?? out.numeros.filter(n => !!n.nome).length);
-    out.livres   = out.total - out.vendidos;
-    return out;
+  // tenta ler lista vinda do backend
+  if (Array.isArray(d?.numeros)) {
+    out.numeros = d.numeros.map(x => ({
+      numero: Number(x.numero ?? x.num ?? x.n ?? x.id),
+      nome: (x.nome ?? x.who ?? x.comprador ?? '').toString().trim() || null
+    })).filter(x => Number.isFinite(x.numero));
+  } else if (Array.isArray(d)) {
+    out.numeros = d.map((x,i) => {
+      if (typeof x === 'number') return { numero: x, nome: null };
+      const n = Number(x?.numero ?? x?.num ?? x?.n ?? (i+1));
+      const who = (x?.nome ?? x?.who ?? x?.comprador ?? '').toString().trim() || null;
+      return { numero:n, nome:who };
+    });
   }
 
-  function isLivre(entry) {
-    const v = (entry?.nome ?? '').toString().trim();
-    if (!v) return true;
-    const normalizados = ['-', '—', 'n/a', 'null', 'vazio', 'disponível', 'disponivel', 'livre'];
-    return normalizados.includes(v.toLowerCase());
+  // total vindo do backend (ou do length)
+  out.total = Number(d?.total ?? out.numeros.length);
+
+  // ⚠️ Fallback: se não veio a lista, gera 1..total livres
+  if ((!out.numeros || out.numeros.length === 0) && out.total > 0) {
+    out.numeros = Array.from({length: out.total}, (_,i) => ({ numero: i+1, nome: null }));
   }
+
+  out.vendidos = Number(d?.vendidos ?? out.numeros.filter(n => !!n.nome).length);
+  out.livres   = out.total - out.vendidos;
+  return out;
+}
 
   function renderGrid(list){
     $grid.innerHTML = '';
@@ -154,7 +151,7 @@
       if (!ocupado) {
         card.querySelector('.btnComprar').addEventListener('click', () => {
           numeroSelecionado = item.numero;
-          $dlgTitle.textContent = \`Número #\${item.numero}\`;
+          $dlgTitle.textContent = `Número #${item.numero}`;
           $inpNome.value = '';
           if (typeof $dlg.showModal === 'function') $dlg.showModal();
           else $dlg.setAttribute('open','');
@@ -167,7 +164,7 @@
   async function load(){
     try{
       $grid.innerHTML = '<div class="muted">Carregando rifa…</div>';
-      const res  = await fetch('/api/rifa/init.js?ts=' + Date.now(), { cache:'no-store' });
+      const res = await fetch('/api/rifa/init.js', { cache:'no-store' });
       const data = await toJson(res);
       if (!res.ok || data.ok === false) throw new Error(data?.message || 'Falha ao carregar rifa.');
       const norm = normalizeInit(data);
@@ -177,13 +174,7 @@
       $badgeLiv.textContent  = `Livres: ${norm.livres}`;
       $btnSort.disabled = norm.livres > 0;
 
-      // Renderiza somente os números disponíveis
-      const apenasLivres = (norm.numeros || []).filter(isLivre);
-      if (apenasLivres.length === 0) {
-        $grid.innerHTML = '<div class="muted">Todos os números foram vendidos.</div>';
-      } else {
-        renderGrid(apenasLivres);
-      }
+      renderGrid(norm.numeros);
     } catch(e){
       $grid.innerHTML = '';
       toast(false, 'Falha ao carregar rifa: ' + e.message);
@@ -231,6 +222,7 @@
     toast(true, `🎉 Vencedor: #${numero} – ${nome}`);
   }
 
+  // --- ligar eventos (funciona mesmo em partial carregado)
   function bindEvents(){
     if ($btnCriar && !$btnCriar.dataset.bound) {
       $btnCriar.dataset.bound = '1';
@@ -274,15 +266,19 @@
     }
   }
 
+  // liga já (se o DOM já estiver pronto) ou aguarda
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => { bindEvents(); load(); });
   } else {
     bindEvents(); load();
   }
 
+  // expõe load para outros scripts, se necessário
   window.load = load;
 })();
 </script>
+
+
 
 </body>
 </html>
