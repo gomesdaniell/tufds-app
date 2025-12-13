@@ -40,8 +40,7 @@
   <div class="toolbar">
     <span class="muted">Gerar/Resetar rifa com</span>
     <input id="qtd" type="number" min="5" step="5" value="50" style="width:90px"/>
-   <button id="btnCriar" type="button">Criar/Resetar</button>
-
+    <button id="btnCriar" type="button">Criar/Resetar</button>
 
     <span class="badge" id="badgeTot">Total: 0</span>
     <span class="badge" id="badgeVendidos">Vendidos: 0</span>
@@ -70,13 +69,14 @@
 
 <script>
 (() => {
+  const $root     = document.getElementById('rifa-root');
   const $btnCriar = document.getElementById('btnCriar');
-  const $qtd      = document.getElementById('qtd');      // input de quantidade
-  const $msg      = document.getElementById('msg');      // div para mensagens (ok/erro)
+  const $qtd      = document.getElementById('qtd');
+  const $msg      = document.getElementById('msg');
 
   function show(ok, text){
     if (!$msg) return alert(text);
-    $msg.className = ok ? 'ok' : 'err';
+    $msg.className = 'msg ' + (ok ? 'ok' : 'err'); // <-- mantém .msg
     $msg.textContent = text;
     $msg.style.display = 'block';
   }
@@ -85,7 +85,6 @@
     const n = parseInt(($qtd?.value || '').trim(), 10);
     if (!n || n < 1) { show(false, 'Informe uma quantidade válida.'); return; }
 
-    // trava duplo clique
     $btnCriar.disabled = true;
     $btnCriar.textContent = 'Enviando...';
     $msg && ($msg.style.display = 'none');
@@ -98,7 +97,6 @@
         body: JSON.stringify({ total: n })
       });
 
-      // lê como texto e tenta JSON (evita “Unexpected token 'A'...”)
       const raw = await res.text();
       let data;
       try { data = JSON.parse(raw); }
@@ -109,8 +107,7 @@
       }
 
       show(true, `Rifa criada/zerada com ${n} números.`);
-      // se você tem uma função load() que recarrega a grade, chame aqui:
-      if (typeof load === 'function') { await load(); }
+      if (typeof load === 'function') { await load(); } // se existir função para recarregar grade
     } catch (e) {
       console.error('configurar() ->', e);
       show(false, `Falha ao criar/zerar: ${e.message}`);
@@ -120,26 +117,17 @@
     }
   }
 
-  // Liga o clique (e previne submit do form)
-  document.addEventListener('DOMContentLoaded', () => {
-    if (!$btnCriar) { console.error('btnCriar não encontrado no DOM'); return; }
-    $btnCriar.addEventListener('click', (ev) => { ev.preventDefault(); configurar(); });
-  });
-
-  // Debug opcional rápido (pode apagar depois)
-  window.rifa_ping = async () => {
-    try {
-      const r = await fetch('/api/rifa/init.js', { cache:'no-store' });
-      const t = await r.text();
-      console.log('init.js ->', t);
-      alert('init.js respondeu:\n' + t.slice(0, 1000));
-    } catch (e) {
-      alert('Falha chamando init.js: ' + e.message);
-    }
-  };
+  // 🔧 bind imediato (sem DOMContentLoaded)
+  if ($btnCriar) {
+    $btnCriar.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      configurar();
+    });
+  } else {
+    console.error('btnCriar não encontrado no DOM');
+  }
 })();
 </script>
-
 
 </body>
 </html>
