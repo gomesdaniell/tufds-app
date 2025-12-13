@@ -68,134 +68,45 @@
 </dialog>
 
 <script>
-async function safeFetchJSON(url, opts) {
-  const res = await fetch(url, opts);
-  const raw = await res.text();
-  let data;
-  try { data = JSON.parse(raw); }
-  catch { throw new Error(raw || res.status+' '+res.statusText); }
-  if (!res.ok || data?.ok === false) throw new Error(data?.message || (res.status+' '+res.statusText));
-  return data;
-}
+  // ... (resto do script igual)
 
-const el = id => document.getElementById(id);
-const $grid = el('grid');
-const $msg  = el('msg');
-const $qtd  = el('qtd');
-const $btnCriar = el('btnCriar');
-const $btnSortear = el('btnSortear');
-const $badgeTot = el('badgeTot');
-const $badgeVendidos = el('badgeVendidos');
-const $badgeLivres = el('badgeLivres');
+  async function configurar(){
+    const n = parseInt($qtd.value,10);
+    if (!n || n < 1) { show(false,'Informe uma quantidade válida.'); return; }
 
-let STATE = { total: 0, itens: [] }; // itens: [{numero, nome|null}]
-
-function show(ok, text){
-  $msg.className = 'msg ' + (ok ? 'ok':'err');
-  $msg.textContent = text;
-  $msg.style.display = 'block';
-  if (ok) setTimeout(()=> $msg.style.display='none', 2500);
-}
-
-function render(){
-  const vendidos = STATE.itens.filter(i=>i.nome).length;
-  const livres   = STATE.itens.length - vendidos;
-  $badgeTot.textContent = 'Total: ' + STATE.itens.length;
-  $badgeVendidos.textContent = 'Vendidos: ' + vendidos;
-  $badgeLivres.textContent = 'Livres: ' + livres;
-  $btnSortear.disabled = !(STATE.itens.length>0 && vendidos===STATE.itens.length);
-
-  $grid.innerHTML = STATE.itens.map(i=>{
-    if (i.nome) {
-      return `
-        <div class="card ocupado">
-          <div class="num">#${i.numero}</div>
-          <div class="who">Vendido: ${i.nome}</div>
-        </div>
-      `;
-    } else {
-      return `
-        <button class="card livre" data-num="${i.numero}">
-          <div class="num">#${i.numero}</div>
-          <div class="muted">Disponível</div>
-        </button>
-      `;
-    }
-  }).join('');
-}
-
-async function load(){
-  const data = await safeFetchJSON('/api/rifa/init.js');
-  STATE.total = data.total || 0;
-  STATE.itens = Array.isArray(data.itens) ? data.itens : [];
-  render();
-}
-
-async function configurar(){
-  const n = parseInt($qtd.value,10);
-  if (!n || n<1) return show(false,'Informe uma quantidade válida.');
-  await safeFetchJSON('/api/rifa/configurar.js', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ total:n })
-  });
-  show(true,'Rifa criada/zerada com '+n+' números.');
-  load();
-}
-
-function promptComprar(numero){
-  const dlg = el('dlg');
-  const title = el('dlgTitle');
-  const inp = el('inpNome');
-  title.textContent = 'Comprar número #'+numero;
-  inp.value = '';
-  dlg.showModal();
-
-  const cancel = el('dlgCancel');
-  cancel.onclick = ()=> dlg.close('cancel');
-
-  const form = el('dlgForm');
-  form.onsubmit = async (ev)=>{
-    ev.preventDefault();
-    const nome = inp.value.trim();
-    if (!nome) return;
-    try{
-      await safeFetchJSON('/api/rifa/comprar.js', {
+    $btnCriar.disabled = true; 
+    $btnCriar.textContent = 'Enviando...';
+    try {
+      const res = await fetch('/api/rifa/configurar.js', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ numero, nome })
+        cache: 'no-store',
+        body: JSON.stringify({ total:n })
       });
-      dlg.close('ok');
-      show(true, 'Número #'+numero+' vendido para '+nome);
+
+      // lê como texto e tenta JSON (pra evitar “Unexpected token 'A'...”)
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); }
+      catch { throw new Error(raw || `${res.status} ${res.statusText}`); }
+
+      if (!res.ok || data.ok === false) {
+        throw new Error(data?.message || `${res.status} ${res.statusText}`);
+      }
+
+      show(true, `Rifa criada/zerada com ${n} números.`);
       await load();
-    }catch(e){
-      show(false, e.message);
+    } catch(e){
+      console.error('configurar() ->', e);
+      show(false, `Falha ao criar/zerar: ${e.message}`);
+    } finally {
+      $btnCriar.disabled = false; 
+      $btnCriar.textContent = 'Criar/Resetar';
     }
-  };
-}
-
-async function sortear(){
-  try{
-    const r = await safeFetchJSON('/api/rifa/sortear.js', { method:'POST' });
-    const { numero, nome } = r.vencedor || {};
-    show(true, `🎉 Vencedor: #${numero} — ${nome}`);
-    await load();
-  }catch(e){
-    show(false, e.message);
   }
-}
 
-document.addEventListener('click', (ev)=>{
-  const btn = ev.target.closest('button.livre[data-num]');
-  if (!btn) return;
-  const n = parseInt(btn.getAttribute('data-num'),10);
-  promptComprar(n);
-});
-
-$btnCriar.addEventListener('click', configurar);
-$btnSortear.addEventListener('click', sortear);
-
-document.addEventListener('DOMContentLoaded', load);
+  // ... (resto do script igual)
 </script>
+
 </body>
 </html>
