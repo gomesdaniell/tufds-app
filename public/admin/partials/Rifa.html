@@ -107,25 +107,35 @@
   }
 
   function normalizeInit(d){
-    const out = { total:0, vendidos:0, livres:0, numeros:[] };
-    if (Array.isArray(d?.numeros)) {
-      out.numeros = d.numeros.map(x => ({
-        numero: Number(x.numero ?? x.num ?? x.n ?? x.id),
-        nome: (x.nome ?? x.who ?? x.comprador ?? x.owner ?? '').toString().trim() || null
-      })).filter(x => Number.isFinite(x.numero));
-    } else if (Array.isArray(d)) {
-      out.numeros = d.map((x,i) => {
-        if (typeof x === 'number') return { numero: x, nome: null };
-        const n = Number(x?.numero ?? x?.num ?? x?.n ?? (i+1));
-        const who = (x?.nome ?? x?.who ?? x?.comprador ?? '').toString().trim() || null;
-        return { numero:n, nome:who };
-      });
-    }
-    out.total    = Number(d?.total ?? out.numeros.length);
-    out.vendidos = Number(d?.vendidos ?? out.numeros.filter(n => !!n.nome).length);
-    out.livres   = out.total - out.vendidos;
-    return out;
+  const out = { total:0, vendidos:0, livres:0, numeros:[] };
+
+  // tenta ler lista vinda do backend
+  if (Array.isArray(d?.numeros)) {
+    out.numeros = d.numeros.map(x => ({
+      numero: Number(x.numero ?? x.num ?? x.n ?? x.id),
+      nome: (x.nome ?? x.who ?? x.comprador ?? '').toString().trim() || null
+    })).filter(x => Number.isFinite(x.numero));
+  } else if (Array.isArray(d)) {
+    out.numeros = d.map((x,i) => {
+      if (typeof x === 'number') return { numero: x, nome: null };
+      const n = Number(x?.numero ?? x?.num ?? x?.n ?? (i+1));
+      const who = (x?.nome ?? x?.who ?? x?.comprador ?? '').toString().trim() || null;
+      return { numero:n, nome:who };
+    });
   }
+
+  // total vindo do backend (ou do length)
+  out.total = Number(d?.total ?? out.numeros.length);
+
+  // ⚠️ Fallback: se não veio a lista, gera 1..total livres
+  if ((!out.numeros || out.numeros.length === 0) && out.total > 0) {
+    out.numeros = Array.from({length: out.total}, (_,i) => ({ numero: i+1, nome: null }));
+  }
+
+  out.vendidos = Number(d?.vendidos ?? out.numeros.filter(n => !!n.nome).length);
+  out.livres   = out.total - out.vendidos;
+  return out;
+}
 
   function renderGrid(list){
     $grid.innerHTML = '';
