@@ -161,45 +161,25 @@
     });
   }
 
-  <script>
-// considera "livre" quando não há comprador (vazio, traço, etc.)
-function isLivre(entry) {
-  const v = (entry?.nome ?? '').toString().trim();
-  if (!v) return true;                 // vazio
-  const normalizados = ['-', '—', 'n/a', 'null', 'vazio', 'disponível', 'disponivel', 'livre'];
-  return normalizados.includes(v.toLowerCase());
-}
+  async function load(){
+    try{
+      $grid.innerHTML = '<div class="muted">Carregando rifa…</div>';
+      const res = await fetch('/api/rifa/init.js', { cache:'no-store' });
+      const data = await toJson(res);
+      if (!res.ok || data.ok === false) throw new Error(data?.message || 'Falha ao carregar rifa.');
+      const norm = normalizeInit(data);
 
-async function load(){
-  try{
-    // evita cache agressivo do navegador/CDN
-    $grid.innerHTML = '<div class="muted">Carregando rifa…</div>';
-    const res  = await fetch('/api/rifa/init.js?ts=' + Date.now(), { cache:'no-store' });
-    const data = await toJson(res);
-    if (!res.ok || data.ok === false) throw new Error(data?.message || 'Falha ao carregar rifa.');
+      $badgeTot.textContent  = `Total: ${norm.total}`;
+      $badgeVend.textContent = `Vendidos: ${norm.vendidos}`;
+      $badgeLiv.textContent  = `Livres: ${norm.livres}`;
+      $btnSort.disabled = norm.livres > 0;
 
-    const norm = normalizeInit(data);
-
-    // mantém os badges com totais reais…
-    $badgeTot.textContent  = `Total: ${norm.total}`;
-    $badgeVend.textContent = `Vendidos: ${norm.vendidos}`;
-    $badgeLiv.textContent  = `Livres: ${norm.livres}`;
-    $btnSort.disabled = norm.livres > 0;
-
-    // …mas renderiza SOMENTE os disponíveis
-    const apenasLivres = (norm.numeros || []).filter(isLivre);
-    renderGrid(apenasLivres);
-
-    // se preferir, quando não tiver livre mostra uma mensagenzinha
-    if (apenasLivres.length === 0) {
-      $grid.innerHTML = '<div class="muted">Todos os números foram vendidos.</div>';
+      renderGrid(norm.numeros);
+    } catch(e){
+      $grid.innerHTML = '';
+      toast(false, 'Falha ao carregar rifa: ' + e.message);
     }
-  } catch(e){
-    $grid.innerHTML = '';
-    toast(false, 'Falha ao carregar rifa: ' + e.message);
   }
-}
-</script>
 
   async function configurar(){
     const n = parseInt(($qtd?.value || '').trim(), 10);
