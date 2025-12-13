@@ -67,67 +67,183 @@
   </form>
 </dialog>
 
+<!-- ADICIONE ESTE SCRIPT APÓS O SCRIPT EXISTENTE -->
 <script>
 (() => {
-  const $root     = document.getElementById('rifa-root');
-  const $btnCriar = document.getElementById('btnCriar');
-  const $qtd      = document.getElementById('qtd');
-  const $msg      = document.getElementById('msg');
+  const $grid   = document.getElementById('grid');
+  const $msg    = document.getElementById('msg');
+  const $badgeTot = document.getElementById('badgeTot');
+  const $badgeVendidos = document.getElementById('badgeVendidos');
+  const $badgeLivres   = document.getElementById('badgeLivres');
+  const $btnSortear = document.getElementById('btnSortear');
 
-  function show(ok, text){
+  // Modal
+  const $dlg      = document.getElementById('dlg');
+  const $dlgForm  = document.getElementById('dlgForm');
+  const $dlgTitle = document.getElementById('dlgTitle');
+  const $inpNome  = document.getElementById('inpNome');
+
+  let numeros = [];     // [{numero: 1, nome: null}, ...]
+  let numeroSelecionado = null;
+
+  function toast(ok, text){
     if (!$msg) return alert(text);
-    $msg.className = 'msg ' + (ok ? 'ok' : 'err'); // <-- mantém .msg
+    $msg.className = 'msg ' + (ok ? 'ok' : 'err');
     $msg.textContent = text;
     $msg.style.display = 'block';
   }
 
-  async function configurar(){
-    const n = parseInt(($qtd?.value || '').trim(), 10);
-    if (!n || n < 1) { show(false, 'Informe uma quantidade válida.'); return; }
+  function normalizeInitPayload(dataRaw) {
+    // Tenta aceitar formatos diferentes vindos do backend
+    // Esperado: { ok:true, total, vendidos, livres, numeros: [{numero, nome}] }
+    const d = dataRaw || {};
+    const out = { total: 0, vendidos: 0, livres: 0, numeros: [] };
 
-    $btnCriar.disabled = true;
-    $btnCriar.textContent = 'Enviando...';
-    $msg && ($msg.style.display = 'none');
-
-    try {
-      const res = await fetch('/api/rifa/configurar.js', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({ total: n })
+    if (Array.isArray(d.numeros)) {
+      out.numeros = d.numeros.map(it => {
+        // aceita chaves alternativas
+        const numero = it.numero ?? it.num ?? it.n ?? it.id ?? null;
+        const nome   = it.nome ?? it.who ?? it.comprador ?? it.owner ?? null;
+        return { numero, nome: (nome && String(nome).trim()) || null };
+      }).filter(it => typeof it.numero === 'number');
+    } else if (Array.isArray(d)) {
+      // Se veio direto um array (fallback)
+      out.numeros = d.map((it, i) => {
+        if (typeof it === 'number') return { numero: it, nome: null };
+        if (typeof it === 'object' && it !== null) {
+          const numero = it.numero ?? it.num ?? it.n ?? i+1;
+          const nome   = it.nome ?? it.who ?? it.comprador ?? null;
+          return { numero, nome: (nome && String(nome).trim()) || null };
+        }
+        return { numero: i+1, nome: null };
       });
+    }
 
-      const raw = await res.text();
-      let data;
-      try { data = JSON.parse(raw); }
-      catch { throw new Error(raw || `${res.status} ${res.statusText}`); }
+    // Totais
+    out.total    = d.total ?? out.numeros.length;
+    out.vendidos = d.vendidos ?? out.numeros.filter(x => !!x.nome).length;
+    out.livres   = d.livres   ?? (out.total - out.vendidos);
+    return out;
+  }
 
-      if (!res.ok || data.ok === false) {
-        throw new Error(data?.message || `${res.status} ${res.statusText}`);
+  function renderGrid(list) {
+    $grid.innerHTML = '';
+    list.forEach(item => {
+      const card = document.createElement('div');
+      const ocupado = !!item.nome;
+      card.className = 'card ' + (ocupado ? 'ocupado' : 'livre');
+      card.innerHTML = `
+        <div class="num">#${item.numero}</div>
+        <div class="who">${ocupado ? (item.nome) : '<span class="muted">disponível</span>'}</div>
+        ${ocupado ? '' : '<button type="button" class="btnComprar">Vender</button>'}
+      `;
+
+      if (!ocupado) {
+        card.querySelector('.btnComprar').addEventListener('click', () => {
+          numeroSelecionado = item.numero;
+          $dlgTitle.textContent = `Número #${item.numero}`;
+          $inpNome.value = '';
+          if (typeof $dlg.showModal === 'function') $dlg.showModal();
+          else $dlg.setAttribute('open','');
+        });
       }
 
-      show(true, `Rifa criada/zerada com ${n} números.`);
-      if (typeof load === 'function') { await load(); } // se existir função para recarregar grade
+      $grid.appendChild(card);
+    });
+  }
+
+  async function load() {
+    try {
+      $grid.innerHTML = '<div class="muted">Carregando rifa…</div>';
+
+      const res = await fetch('/api/rifa/init.js', { cache: 'no-store' });
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); } catch { throw new Error(raw || `${res.status} ${res.statusText}`); }
+      if (!res.ok || data.ok === false) throw new Error(data?.message || `${res.status} ${res.statusText}`);
+
+      const norm = normalizeInitPayload(data);
+      numeros = norm.numeros;
+
+      // Badges
+      $badgeTot.textContent      = `Total: ${norm.total}`;
+      $badgeVendidos.textContent = `Vendidos: ${norm.vendidos}`;
+      $badgeLivres.textContent   = `Livres: ${norm.livres}`;
+
+      // Sortear fica habilitado só quando não há livres
+      $btnSortear.disabled = norm.livres > 0;
+
+      renderGrid(numeros);
     } catch (e) {
-      console.error('configurar() ->', e);
-      show(false, `Falha ao criar/zerar: ${e.message}`);
-    } finally {
-      $btnCriar.disabled = false;
-      $btnCriar.textContent = 'Criar/Resetar';
+      toast(false, 'Falha ao carregar rifa: ' + e.message);
+      $grid.innerHTML = '';
     }
   }
 
-  // 🔧 bind imediato (sem DOMContentLoaded)
-  if ($btnCriar) {
-    $btnCriar.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      configurar();
-    });
-  } else {
-    console.error('btnCriar não encontrado no DOM');
-  }
+  // Comprar (atribuir nome) – submit do modal
+  $dlgForm.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const nome = ($inpNome.value || '').trim();
+    if (!nome) { toast(false, 'Informe o nome do comprador.'); return; }
+    if (!numeroSelecionado) { toast(false, 'Número inválido.'); return; }
+
+    try {
+      const res = await fetch('/api/rifa/comprar.js', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ numero: numeroSelecionado, nome })
+      });
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); } catch { throw new Error(raw || `${res.status} ${res.statusText}`); }
+      if (!res.ok || data.ok === false) throw new Error(data?.message || `${res.status} ${res.statusText}`);
+
+      toast(true, `Número #${numeroSelecionado} vendido para ${nome}.`);
+      // fecha modal
+      if (typeof $dlg.close === 'function') $dlg.close();
+      else $dlg.removeAttribute('open');
+      numeroSelecionado = null;
+
+      await load();
+    } catch (e) {
+      toast(false, 'Falha ao vender: ' + e.message);
+    }
+  });
+
+  // Cancelar modal
+  document.getElementById('dlgCancel').addEventListener('click', () => {
+    if (typeof $dlg.close === 'function') $dlg.close();
+    else $dlg.removeAttribute('open');
+  });
+
+  // Sortear vencedor
+  $btnSortear.addEventListener('click', async () => {
+    try {
+      $btnSortear.disabled = true;
+      const res = await fetch('/api/rifa/sortear.js', { method: 'POST' });
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); } catch { throw new Error(raw || `${res.status} ${res.statusText}`); }
+      if (!res.ok || data.ok === false) throw new Error(data?.message || `${res.status} ${res.statusText}`);
+
+      const v = data.vencedor || {};
+      const numero = v.numero ?? v.num ?? v.n ?? '?';
+      const nome   = v.nome   ?? v.who ?? v.comprador ?? '—';
+      toast(true, `🎉 Vencedor: #${numero} – ${nome}`);
+    } catch (e) {
+      toast(false, 'Falha ao sortear: ' + (e.message || e));
+      $btnSortear.disabled = false; // reabilita em caso de erro
+    }
+  });
+
+  // Exponho load() para ser chamado pelo outro script após reset
+  window.load = load;
+
+  // Primeira carga da grade ao abrir o partial
+  load();
 })();
 </script>
+
 
 </body>
 </html>
