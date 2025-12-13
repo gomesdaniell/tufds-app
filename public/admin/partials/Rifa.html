@@ -109,57 +109,62 @@
   function normalizeInit(d){
   const out = { total:0, vendidos:0, livres:0, numeros:[] };
 
-  // tenta ler lista vinda do backend
   if (Array.isArray(d?.numeros)) {
     out.numeros = d.numeros.map(x => ({
       numero: Number(x.numero ?? x.num ?? x.n ?? x.id),
-      nome: (x.nome ?? x.who ?? x.comprador ?? '').toString().trim() || null
+      nome: (x.nome ?? x.who ?? x.comprador ?? '').toString().trim() || ''
     })).filter(x => Number.isFinite(x.numero));
   } else if (Array.isArray(d)) {
     out.numeros = d.map((x,i) => {
-      if (typeof x === 'number') return { numero: x, nome: null };
-      const n = Number(x?.numero ?? x?.num ?? x?.n ?? (i+1));
-      const who = (x?.nome ?? x?.who ?? x?.comprador ?? '').toString().trim() || null;
+      if (typeof x === 'number') return { numero: x, nome: '' };
+      const n   = Number(x?.numero ?? x?.num ?? x?.n ?? (i+1));
+      const who = (x?.nome ?? x?.who ?? x?.comprador ?? '').toString().trim() || '';
       return { numero:n, nome:who };
     });
   }
 
-  // total vindo do backend (ou do length)
   out.total = Number(d?.total ?? out.numeros.length);
 
-  // ⚠️ Fallback: se não veio a lista, gera 1..total livres
   if ((!out.numeros || out.numeros.length === 0) && out.total > 0) {
-    out.numeros = Array.from({length: out.total}, (_,i) => ({ numero: i+1, nome: null }));
+    out.numeros = Array.from({length: out.total}, (_,i) => ({ numero: i+1, nome: '' }));
   }
 
-  out.vendidos = Number(d?.vendidos ?? out.numeros.filter(n => !!n.nome).length);
+  out.vendidos = Number(d?.vendidos ?? out.numeros.filter(n => n.nome).length);
   out.livres   = out.total - out.vendidos;
   return out;
 }
 
-  function renderGrid(list){
-    $grid.innerHTML = '';
-    list.forEach(item => {
-      const ocupado = !!item.nome;
-      const card = document.createElement('div');
-      card.className = 'card ' + (ocupado ? 'ocupado' : 'livre');
-      card.innerHTML = `
-        <div class="num">#${item.numero}</div>
-        <div class="who">${ocupado ? item.nome : '<span class="muted">disponível</span>'}</div>
-        ${ocupado ? '' : '<button type="button" class="btnComprar">Vender</button>'}
-      `;
-      if (!ocupado) {
-        card.querySelector('.btnComprar').addEventListener('click', () => {
-          numeroSelecionado = item.numero;
-          $dlgTitle.textContent = `Número #${item.numero}`;
-          $inpNome.value = '';
-          if (typeof $dlg.showModal === 'function') $dlg.showModal();
-          else $dlg.setAttribute('open','');
-        });
-      }
-      $grid.appendChild(card);
-    });
-  }
+ function renderGrid(list){
+  $grid.innerHTML = '';
+
+  // valores que NÃO significam venda (tratados como vazio)
+  const falsosVazios = new Set(['-', '—', 'disponivel', 'disponível', 'n/a', 'null', 'vazio', 'livre']);
+
+  list.forEach(item => {
+    const nome = (item.nome ?? '').toString().trim();
+    const ocupado = nome && !falsosVazios.has(nome.toLowerCase());
+
+    const card = document.createElement('div');
+    card.className = 'card ' + (ocupado ? 'ocupado' : 'livre');
+    card.innerHTML = `
+      <div class="num">#${item.numero}</div>
+      <div class="who">${ocupado ? nome : '<span class="muted">disponível</span>'}</div>
+      ${ocupado ? '' : '<button type="button" class="btnComprar">Vender</button>'}
+    `;
+
+    if (!ocupado) {
+      card.querySelector('.btnComprar').addEventListener('click', () => {
+        numeroSelecionado = item.numero;
+        $dlgTitle.textContent = \`Número #\${item.numero}\`;
+        $inpNome.value = '';
+        if (typeof $dlg.showModal === 'function') $dlg.showModal();
+        else $dlg.setAttribute('open','');
+      });
+    }
+
+    $grid.appendChild(card);
+  });
+}
 
   async function load(){
     try{
