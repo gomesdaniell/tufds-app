@@ -5,157 +5,197 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Rifa – TUFDS</title>
 <style>
-  :root{ --accent:#0f766e; --muted:#6b7280; --border:#e5e7eb; }
-  .wrap{max-width:960px;margin:0 auto}
-  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-  h2{margin:0 0 10px}
-  .row{display:grid;grid-template-columns:1fr 120px 140px;gap:10px}
-  input,select,button{font:inherit}
-  input,select{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px}
-  button{background:#111827;color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
-  button[disabled]{opacity:.7;cursor:default}
-  .muted{color:var(--muted)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:14px}
-  .tile{border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;background:#fff;cursor:pointer}
-  .tile small{display:block;color:var(--muted)}
-  .tile.livre{background:#ecfdf5;border-color:#c6f6e1}
-  .tile.vendido{background:#fff7ed;border-color:#fde68a}
-  .actions{display:flex;gap:8px;align-items:center;margin-top:12px}
-  .ok{color:#15803d;margin-left:8px}
-  .err{color:#b91c1c;margin-left:8px}
-  .bar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 6px}
+  :root{ --accent:#0f766e; --muted:#6b7280; --border:#e5e7eb; --danger:#b91c1c; --ok:#15803d }
+  body{ font-family:Arial,sans-serif; color:#111827 }
+  .wrap{ max-width:900px; margin:28px auto; background:#fff; padding:20px; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.08) }
+  h1{ margin:0 0 12px }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
+  input,select,button{ padding:9px 12px; border:1px solid var(--border); border-radius:10px; font-size:14px }
+  button{ background:var(--accent); color:#fff; border:none; cursor:pointer; font-weight:700 }
+  button:disabled{ opacity:.6; cursor:not-allowed }
+  .muted{ color:var(--muted); font-size:13px }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); gap:8px; margin-top:14px }
+  .card{
+    border:1px solid var(--border); border-radius:12px; padding:10px; text-align:center;
+    display:flex; flex-direction:column; gap:6px; min-height:86px
+  }
+  .num{ font-weight:800; font-size:18px }
+  .livre{ background:#f8fafc }
+  .ocupado{ background:#fef2f2; border-color:#fecaca }
+  .ocupado .who{ color:#991b1b; font-size:12px }
+  .msg{ margin-top:12px; padding:10px; border-radius:10px; display:none; font-weight:700; text-align:center }
+  .msg.ok{ background:#e8f5e9; color:var(--ok); display:block }
+  .msg.err{ background:#fdecea; color:var(--danger); display:block }
+  .toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0 14px }
+  .badge{ background:#eef2ff; color:#3730a3; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700 }
+  dialog{ border:1px solid var(--border); border-radius:14px; padding:16px; max-width:420px }
+  dialog form{ display:flex; flex-direction:column; gap:10px }
+  .footer{ display:flex; gap:10px; justify-content:flex-end; margin-top:6px }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <!-- Criar / Abrir rifa -->
-  <div class="card">
-    <h2>Rifa</h2>
-    <div class="row">
-      <input id="nomeRifa" placeholder="Nome da rifa (ex.: Rifa do Mês)"/>
-      <input id="qtd" type="number" min="1" max="5000" placeholder="Qtd. números"/>
-      <button id="btnCriar">Criar rifa</button>
-    </div>
-    <div class="actions">
-      <input id="rifaId" placeholder="Abrir rifa (cole o ID aqui)"/>
-      <button id="btnAbrir">Abrir</button>
-      <span id="msgTop" class="muted"></span>
-    </div>
+<div class="wrap" id="rifa-root">
+  <h1>Rifa</h1>
+
+  <div class="toolbar">
+    <span class="muted">Gerar/Resetar rifa com</span>
+    <input id="qtd" type="number" min="5" step="5" value="50" style="width:90px"/>
+    <button id="btnCriar">Criar/Resetar</button>
+
+    <span class="badge" id="badgeTot">Total: 0</span>
+    <span class="badge" id="badgeVendidos">Vendidos: 0</span>
+    <span class="badge" id="badgeLivres">Livres: 0</span>
+
+    <button id="btnSortear" disabled>Sortear vencedor</button>
   </div>
 
-  <!-- Painel da rifa -->
-  <div id="painel" class="card" style="margin-top:14px; display:none">
-    <div class="bar">
-      <div>
-        <div class="muted">Rifa ativa</div>
-        <strong id="nomeAtivo">—</strong> • <span class="muted">ID:</span> <code id="idAtivo">—</code>
-      </div>
-      <div class="actions">
-        <button id="btnSortear" disabled>SORTEAR</button>
-        <span id="msg" class="muted"></span>
-      </div>
-    </div>
+  <div id="msg" class="msg"></div>
 
-    <div id="grid" class="grid"></div>
-  </div>
+  <div id="grid" class="grid"></div>
 </div>
 
+<!-- Modal de compra -->
+<dialog id="dlg">
+  <form method="dialog" id="dlgForm">
+    <h3 id="dlgTitle" style="margin:0 0 6px">Número</h3>
+    <label>Nome do comprador</label>
+    <input id="inpNome" type="text" required placeholder="Ex.: Maria Souza"/>
+    <div class="footer">
+      <button id="dlgCancel" type="button" style="background:#6b7280">Cancelar</button>
+      <button id="dlgOk" type="submit">Confirmar</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
-const $ = (id)=>document.getElementById(id);
-const msgTop = $('msgTop'), msg = $('msg');
-let state = { rifaId:null, nome:null, numeros:[] };
-
-function setMsg(el, text, ok){
-  el.textContent = text || '';
-  el.className = text ? (ok ? 'ok' : 'err') : 'muted';
-}
-function toast(t, ok){ setMsg(msg, t, ok); if (t) setTimeout(()=>setMsg(msg,''), 2500); }
-
-async function criarRifa(){
-  const nome = $('nomeRifa').value.trim();
-  const qtd  = Number($('qtd').value || 0);
-  if(!nome || !qtd) return setMsg(msgTop,'Preencha nome e quantidade.',false);
-
-  $('btnCriar').disabled = true;
-  setMsg(msgTop,'Criando...',false);
-  try{
-    const r = await fetch('/api/rifas/create.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,qtd})});
-    const j = await r.json();
-    if(!r.ok || !j.ok) throw new Error(j.message||'Falha ao criar');
-    $('rifaId').value = j.rifaId;
-    window.location.hash = '#'+j.rifaId;
-    await abrirRifa(j.rifaId);
-    setMsg(msgTop,'✅ Rifa criada',true);
-  }catch(e){ setMsg(msgTop,'❌ '+e.message,false); }
-  finally{ $('btnCriar').disabled = false; }
+async function safeFetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  const raw = await res.text();
+  let data;
+  try { data = JSON.parse(raw); }
+  catch { throw new Error(raw || res.status+' '+res.statusText); }
+  if (!res.ok || data?.ok === false) throw new Error(data?.message || (res.status+' '+res.statusText));
+  return data;
 }
 
-async function abrirRifa(id){
-  if(!id) return;
-  setMsg(msg,'Carregando...',false);
-  const r = await fetch('/api/rifas/list.js?rifaId='+encodeURIComponent(id));
-  const j = await r.json();
-  if(!r.ok || !j.ok){ setMsg(msg,'❌ '+(j.message||'Erro ao carregar'),false); return; }
-  state = { rifaId:id, nome:j.nome, numeros:j.numeros||[] };
-  $('painel').style.display = '';
-  $('nomeAtivo').textContent = state.nome || '—';
-  $('idAtivo').textContent = state.rifaId;
-  renderGrid();
+const el = id => document.getElementById(id);
+const $grid = el('grid');
+const $msg  = el('msg');
+const $qtd  = el('qtd');
+const $btnCriar = el('btnCriar');
+const $btnSortear = el('btnSortear');
+const $badgeTot = el('badgeTot');
+const $badgeVendidos = el('badgeVendidos');
+const $badgeLivres = el('badgeLivres');
+
+let STATE = { total: 0, itens: [] }; // itens: [{numero, nome|null}]
+
+function show(ok, text){
+  $msg.className = 'msg ' + (ok ? 'ok':'err');
+  $msg.textContent = text;
+  $msg.style.display = 'block';
+  if (ok) setTimeout(()=> $msg.style.display='none', 2500);
 }
 
-function renderGrid(){
-  const g = $('grid'); g.innerHTML = '';
-  let vendidos = 0;
-  state.numeros.forEach(it=>{
-    const div = document.createElement('div');
-    div.className = 'tile ' + (it.status==='Vendido'?'vendido':'livre');
-    div.innerHTML = `<strong>#${it.n}</strong><small>${it.comprador?it.comprador:'Livre'}</small>`;
-    div.onclick = ()=> editarNumero(it.n);
-    g.appendChild(div);
-    if(it.status==='Vendido') vendidos++;
+function render(){
+  const vendidos = STATE.itens.filter(i=>i.nome).length;
+  const livres   = STATE.itens.length - vendidos;
+  $badgeTot.textContent = 'Total: ' + STATE.itens.length;
+  $badgeVendidos.textContent = 'Vendidos: ' + vendidos;
+  $badgeLivres.textContent = 'Livres: ' + livres;
+  $btnSortear.disabled = !(STATE.itens.length>0 && vendidos===STATE.itens.length);
+
+  $grid.innerHTML = STATE.itens.map(i=>{
+    if (i.nome) {
+      return `
+        <div class="card ocupado">
+          <div class="num">#${i.numero}</div>
+          <div class="who">Vendido: ${i.nome}</div>
+        </div>
+      `;
+    } else {
+      return `
+        <button class="card livre" data-num="${i.numero}">
+          <div class="num">#${i.numero}</div>
+          <div class="muted">Disponível</div>
+        </button>
+      `;
+    }
+  }).join('');
+}
+
+async function load(){
+  const data = await safeFetchJSON('/api/rifa/init.js');
+  STATE.total = data.total || 0;
+  STATE.itens = Array.isArray(data.itens) ? data.itens : [];
+  render();
+}
+
+async function configurar(){
+  const n = parseInt($qtd.value,10);
+  if (!n || n<1) return show(false,'Informe uma quantidade válida.');
+  await safeFetchJSON('/api/rifa/configurar.js', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ total:n })
   });
-  $('btnSortear').disabled = !(vendidos>0 && vendidos===state.numeros.length);
+  show(true,'Rifa criada/zerada com '+n+' números.');
+  load();
 }
 
-async function editarNumero(n){
-  const alvo = state.numeros.find(x=>x.n===n);
-  const nome = prompt(`Comprador do número #${n}`, alvo?.comprador||'');
-  if (nome===null) return; // cancel
-  const pago = confirm('Marcar como PAGO? (OK = Sim / Cancelar = Não)');
+function promptComprar(numero){
+  const dlg = el('dlg');
+  const title = el('dlgTitle');
+  const inp = el('inpNome');
+  title.textContent = 'Comprar número #'+numero;
+  inp.value = '';
+  dlg.showModal();
 
-  try{
-    const r = await fetch('/api/rifas/claim.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rifaId:state.rifaId,numero:n,comprador:nome.trim(),pago})});
-    const j = await r.json();
-    if(!r.ok || !j.ok) throw new Error(j.message||'Falha ao salvar');
-    // atualiza local
-    const idx = state.numeros.findIndex(x=>x.n===n);
-    state.numeros[idx] = { n, comprador:nome.trim(), status: nome.trim()?'Vendido':'Livre', pago: pago?'Sim':'' };
-    renderGrid();
-    toast('✅ Atualizado',true);
-  }catch(e){ toast('❌ '+e.message,false); }
+  const cancel = el('dlgCancel');
+  cancel.onclick = ()=> dlg.close('cancel');
+
+  const form = el('dlgForm');
+  form.onsubmit = async (ev)=>{
+    ev.preventDefault();
+    const nome = inp.value.trim();
+    if (!nome) return;
+    try{
+      await safeFetchJSON('/api/rifa/comprar.js', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ numero, nome })
+      });
+      dlg.close('ok');
+      show(true, 'Número #'+numero+' vendido para '+nome);
+      await load();
+    }catch(e){
+      show(false, e.message);
+    }
+  };
 }
 
 async function sortear(){
-  if(!$('btnSortear').disabled && confirm('Confirmar sorteio?')) {
-    try{
-      const r = await fetch('/api/rifas/draw.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rifaId:state.rifaId})});
-      const j = await r.json();
-      if(!r.ok || !j.ok) throw new Error(j.message||'Falha no sorteio');
-      alert(`🎉 Ganhador: #${j.numero} – ${j.comprador}`);
-    }catch(e){ toast('❌ '+e.message,false); }
+  try{
+    const r = await safeFetchJSON('/api/rifa/sortear.js', { method:'POST' });
+    const { numero, nome } = r.vencedor || {};
+    show(true, `🎉 Vencedor: #${numero} — ${nome}`);
+    await load();
+  }catch(e){
+    show(false, e.message);
   }
 }
 
-// binds
-$('btnCriar').onclick = criarRifa;
-$('btnAbrir').onclick = ()=> abrirRifa($('rifaId').value.trim());
-$('btnSortear').onclick = sortear;
-
-// hash → abrir
-window.addEventListener('DOMContentLoaded', ()=>{
-  const id = (location.hash||'').replace('#','').trim();
-  if (id) { $('rifaId').value = id; abrirRifa(id); }
+document.addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('button.livre[data-num]');
+  if (!btn) return;
+  const n = parseInt(btn.getAttribute('data-num'),10);
+  promptComprar(n);
 });
+
+$btnCriar.addEventListener('click', configurar);
+$btnSortear.addEventListener('click', sortear);
+
+document.addEventListener('DOMContentLoaded', load);
 </script>
 </body>
 </html>
