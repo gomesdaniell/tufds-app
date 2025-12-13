@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Rifa – TUFDS</title>
+<style>
+  :root{ --accent:#0f766e; --muted:#6b7280; --border:#e5e7eb; }
+  .wrap{max-width:960px;margin:0 auto}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  h2{margin:0 0 10px}
+  .row{display:grid;grid-template-columns:1fr 120px 140px;gap:10px}
+  input,select,button{font:inherit}
+  input,select{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px}
+  button{background:#111827;color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer}
+  button[disabled]{opacity:.7;cursor:default}
+  .muted{color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:14px}
+  .tile{border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;background:#fff;cursor:pointer}
+  .tile small{display:block;color:var(--muted)}
+  .tile.livre{background:#ecfdf5;border-color:#c6f6e1}
+  .tile.vendido{background:#fff7ed;border-color:#fde68a}
+  .actions{display:flex;gap:8px;align-items:center;margin-top:12px}
+  .ok{color:#15803d;margin-left:8px}
+  .err{color:#b91c1c;margin-left:8px}
+  .bar{display:flex;justify-content:space-between;align-items:center;margin:10px 0 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- Criar / Abrir rifa -->
+  <div class="card">
+    <h2>Rifa</h2>
+    <div class="row">
+      <input id="nomeRifa" placeholder="Nome da rifa (ex.: Rifa do Mês)"/>
+      <input id="qtd" type="number" min="1" max="5000" placeholder="Qtd. números"/>
+      <button id="btnCriar">Criar rifa</button>
+    </div>
+    <div class="actions">
+      <input id="rifaId" placeholder="Abrir rifa (cole o ID aqui)"/>
+      <button id="btnAbrir">Abrir</button>
+      <span id="msgTop" class="muted"></span>
+    </div>
+  </div>
+
+  <!-- Painel da rifa -->
+  <div id="painel" class="card" style="margin-top:14px; display:none">
+    <div class="bar">
+      <div>
+        <div class="muted">Rifa ativa</div>
+        <strong id="nomeAtivo">—</strong> • <span class="muted">ID:</span> <code id="idAtivo">—</code>
+      </div>
+      <div class="actions">
+        <button id="btnSortear" disabled>SORTEAR</button>
+        <span id="msg" class="muted"></span>
+      </div>
+    </div>
+
+    <div id="grid" class="grid"></div>
+  </div>
+</div>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+const msgTop = $('msgTop'), msg = $('msg');
+let state = { rifaId:null, nome:null, numeros:[] };
+
+function setMsg(el, text, ok){
+  el.textContent = text || '';
+  el.className = text ? (ok ? 'ok' : 'err') : 'muted';
+}
+function toast(t, ok){ setMsg(msg, t, ok); if (t) setTimeout(()=>setMsg(msg,''), 2500); }
+
+async function criarRifa(){
+  const nome = $('nomeRifa').value.trim();
+  const qtd  = Number($('qtd').value || 0);
+  if(!nome || !qtd) return setMsg(msgTop,'Preencha nome e quantidade.',false);
+
+  $('btnCriar').disabled = true;
+  setMsg(msgTop,'Criando...',false);
+  try{
+    const r = await fetch('/api/rifas/create.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome,qtd})});
+    const j = await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.message||'Falha ao criar');
+    $('rifaId').value = j.rifaId;
+    window.location.hash = '#'+j.rifaId;
+    await abrirRifa(j.rifaId);
+    setMsg(msgTop,'✅ Rifa criada',true);
+  }catch(e){ setMsg(msgTop,'❌ '+e.message,false); }
+  finally{ $('btnCriar').disabled = false; }
+}
+
+async function abrirRifa(id){
+  if(!id) return;
+  setMsg(msg,'Carregando...',false);
+  const r = await fetch('/api/rifas/list.js?rifaId='+encodeURIComponent(id));
+  const j = await r.json();
+  if(!r.ok || !j.ok){ setMsg(msg,'❌ '+(j.message||'Erro ao carregar'),false); return; }
+  state = { rifaId:id, nome:j.nome, numeros:j.numeros||[] };
+  $('painel').style.display = '';
+  $('nomeAtivo').textContent = state.nome || '—';
+  $('idAtivo').textContent = state.rifaId;
+  renderGrid();
+}
+
+function renderGrid(){
+  const g = $('grid'); g.innerHTML = '';
+  let vendidos = 0;
+  state.numeros.forEach(it=>{
+    const div = document.createElement('div');
+    div.className = 'tile ' + (it.status==='Vendido'?'vendido':'livre');
+    div.innerHTML = `<strong>#${it.n}</strong><small>${it.comprador?it.comprador:'Livre'}</small>`;
+    div.onclick = ()=> editarNumero(it.n);
+    g.appendChild(div);
+    if(it.status==='Vendido') vendidos++;
+  });
+  $('btnSortear').disabled = !(vendidos>0 && vendidos===state.numeros.length);
+}
+
+async function editarNumero(n){
+  const alvo = state.numeros.find(x=>x.n===n);
+  const nome = prompt(`Comprador do número #${n}`, alvo?.comprador||'');
+  if (nome===null) return; // cancel
+  const pago = confirm('Marcar como PAGO? (OK = Sim / Cancelar = Não)');
+
+  try{
+    const r = await fetch('/api/rifas/claim.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rifaId:state.rifaId,numero:n,comprador:nome.trim(),pago})});
+    const j = await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.message||'Falha ao salvar');
+    // atualiza local
+    const idx = state.numeros.findIndex(x=>x.n===n);
+    state.numeros[idx] = { n, comprador:nome.trim(), status: nome.trim()?'Vendido':'Livre', pago: pago?'Sim':'' };
+    renderGrid();
+    toast('✅ Atualizado',true);
+  }catch(e){ toast('❌ '+e.message,false); }
+}
+
+async function sortear(){
+  if(!$('btnSortear').disabled && confirm('Confirmar sorteio?')) {
+    try{
+      const r = await fetch('/api/rifas/draw.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rifaId:state.rifaId})});
+      const j = await r.json();
+      if(!r.ok || !j.ok) throw new Error(j.message||'Falha no sorteio');
+      alert(`🎉 Ganhador: #${j.numero} – ${j.comprador}`);
+    }catch(e){ toast('❌ '+e.message,false); }
+  }
+}
+
+// binds
+$('btnCriar').onclick = criarRifa;
+$('btnAbrir').onclick = ()=> abrirRifa($('rifaId').value.trim());
+$('btnSortear').onclick = sortear;
+
+// hash → abrir
+window.addEventListener('DOMContentLoaded', ()=>{
+  const id = (location.hash||'').replace('#','').trim();
+  if (id) { $('rifaId').value = id; abrirRifa(id); }
+});
+</script>
+</body>
+</html>
