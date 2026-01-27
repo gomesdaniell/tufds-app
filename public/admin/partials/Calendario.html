@@ -1,0 +1,226 @@
+<section class="cal-wrap">
+  <div class="cal-head">
+    <div>
+      <h2>Calendário do Terreiro</h2>
+      <p>Acompanhe giras, atividades e datas especiais da casa.</p>
+    </div>
+
+    <div class="cal-controls">
+      <label class="cal-label">
+        Mês:
+        <select id="cal-mes" class="cal-select"></select>
+      </label>
+      <button id="cal-reload" class="cal-btn" type="button">Atualizar</button>
+    </div>
+  </div>
+
+  <div id="cal-status" class="cal-status">Carregando calendário…</div>
+
+  <div class="cal-grid">
+    <div class="cal-card">
+      <h3>Eventos do mês</h3>
+      <div id="cal-list" class="cal-list"></div>
+    </div>
+
+    <div class="cal-card">
+      <h3>Próximos eventos</h3>
+      <div id="cal-next" class="cal-list"></div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .cal-wrap{ display:flex; flex-direction:column; gap:14px; }
+  .cal-head{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:14px; flex-wrap:wrap;
+  }
+  .cal-head h2{ margin:0; font-size:18px; }
+  .cal-head p{ margin:6px 0 0; color:#6b7280; }
+
+  .cal-controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .cal-label{ display:flex; gap:8px; align-items:center; font-weight:600; color:#111827; }
+  .cal-select{
+    border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px;
+    background:#fff; color:#111827; font-weight:600;
+  }
+  .cal-btn{
+    border:1px solid #e5e7eb; border-radius:10px; padding:8px 12px;
+    background:#fff; cursor:pointer; font-weight:700; color:#0f766e;
+  }
+  .cal-btn:hover{ background:#f9fafb; }
+
+  .cal-status{
+    padding:10px 12px; border:1px solid #e5e7eb; border-radius:12px;
+    background:#fff; color:#6b7280;
+  }
+
+  .cal-grid{
+    display:grid; grid-template-columns: 1.3fr .9fr;
+    gap:14px;
+  }
+  @media (max-width: 900px){
+    .cal-grid{ grid-template-columns: 1fr; }
+  }
+
+  .cal-card{
+    border:1px solid #e5e7eb; background:#fff; border-radius:16px;
+    padding:14px;
+    box-shadow:0 2px 10px rgba(0,0,0,.04);
+  }
+  .cal-card h3{ margin:0 0 10px; font-size:15px; }
+
+  .cal-list{ display:flex; flex-direction:column; gap:10px; }
+  .cal-item{
+    border:1px solid #eef2f7; border-radius:14px; padding:10px 12px;
+    display:flex; justify-content:space-between; gap:12px; align-items:flex-start;
+  }
+  .cal-left{ display:flex; flex-direction:column; gap:2px; }
+  .cal-title{ font-weight:800; color:#111827; }
+  .cal-meta{ color:#6b7280; font-size:13px; line-height:1.3; }
+  .cal-tag{
+    font-size:12px; font-weight:800; padding:6px 10px; border-radius:999px;
+    border:1px solid #e5e7eb; background:#f9fafb; color:#111827;
+    white-space:nowrap;
+  }
+  .tag-gira{ background:#0f766e12; border-color:#0f766e40; color:#0f766e; }
+  .tag-ativ{ background:#2563eb12; border-color:#2563eb40; color:#2563eb; }
+  .tag-fer{ background:#b4530912; border-color:#b4530940; color:#b45309; }
+
+  .cal-empty{ color:#6b7280; padding:8px 0; }
+</style>
+
+<script>
+  const API_URL = '/api/calendario/list.js';
+  const TZ = 'America/Manaus';
+
+  const elMes = document.getElementById('cal-mes');
+  const elStatus = document.getElementById('cal-status');
+  const elList = document.getElementById('cal-list');
+  const elNext = document.getElementById('cal-next');
+  const elReload = document.getElementById('cal-reload');
+
+  let allEventos = [];
+
+  function pad2(n){ return String(n).padStart(2,'0'); }
+
+  function todayISO(){
+    // hoje no fuso do usuário (Manaus)
+    const now = new Date();
+    const y = new Intl.DateTimeFormat('en-CA',{ timeZone:TZ, year:'numeric' }).format(now);
+    const m = new Intl.DateTimeFormat('en-CA',{ timeZone:TZ, month:'2-digit' }).format(now);
+    const d = new Intl.DateTimeFormat('en-CA',{ timeZone:TZ, day:'2-digit' }).format(now);
+    return `${y}-${m}-${d}`;
+  }
+
+  function formatMesAno(key){ // "2026-01"
+    const [y,m] = key.split('-');
+    const dt = new Date(Number(y), Number(m)-1, 1);
+    return new Intl.DateTimeFormat('pt-BR', { month:'long', year:'numeric', timeZone:TZ }).format(dt);
+  }
+
+  function tagClass(cat){
+    const c = (cat||'').toLowerCase();
+    if (c.includes('gira')) return 'tag-gira';
+    if (c.includes('feriado')) return 'tag-fer';
+    if (c.includes('atividade')) return 'tag-ativ';
+    return '';
+  }
+
+  function renderList(container, eventos){
+    if (!eventos.length){
+      container.innerHTML = '<div class="cal-empty">Nenhum evento encontrado.</div>';
+      return;
+    }
+
+    container.innerHTML = eventos.map(ev => {
+      const metaParts = [];
+      if (ev.diaSemana) metaParts.push(ev.diaSemana);
+      if (ev.linha && ev.categoria?.toLowerCase().includes('gira')) metaParts.push(ev.linha);
+      if (ev.feriado && ev.categoria?.toLowerCase().includes('feriado')) metaParts.push(ev.feriado);
+      if (ev.atividade && !ev.categoria?.toLowerCase().includes('gira')) metaParts.push(ev.atividade);
+
+      const meta = metaParts.filter(Boolean).join(' • ');
+
+      return `
+        <div class="cal-item">
+          <div class="cal-left">
+            <div class="cal-title">${ev.dataStr} — ${escapeHtml(ev.titulo || ev.atividade || ev.feriado || 'Evento')}</div>
+            <div class="cal-meta">${escapeHtml(meta)}</div>
+          </div>
+          <div class="cal-tag ${tagClass(ev.categoria)}">${escapeHtml(ev.categoria || 'Evento')}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function escapeHtml(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  function buildMesOptions(eventos){
+    const keys = Array.from(new Set(eventos.map(e => e.mesAnoKey))).sort();
+    elMes.innerHTML = keys.map(k => `<option value="${k}">${formatMesAno(k)}</option>`).join('');
+
+    // seleciona mês atual se existir, senão o último mês com evento
+    const cur = todayISO().slice(0,7);
+    const hasCur = keys.includes(cur);
+    elMes.value = hasCur ? cur : (keys[keys.length-1] || cur);
+  }
+
+  function updateViews(){
+    const key = elMes.value;
+    const doMes = allEventos.filter(e => e.mesAnoKey === key);
+
+    renderList(elList, doMes);
+
+    const hoje = todayISO();
+    const proximos = allEventos
+      .filter(e => e.iso >= hoje)
+      .slice(0, 10);
+
+    renderList(elNext, proximos);
+
+    elStatus.textContent = `Total: ${allEventos.length} eventos • Mês selecionado: ${formatMesAno(key)} • Hoje: ${hoje}`;
+  }
+
+  async function loadCalendar(){
+    elStatus.textContent = 'Carregando calendário…';
+    elList.innerHTML = '';
+    elNext.innerHTML = '';
+
+    try{
+      const res = await fetch(API_URL, { cache: 'no-store' });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Falha ao carregar');
+
+      allEventos = Array.isArray(j.eventos) ? j.eventos : [];
+      if (!allEventos.length){
+        elStatus.textContent = 'Nenhum evento encontrado na planilha.';
+        elList.innerHTML = '<div class="cal-empty">Sem dados.</div>';
+        elNext.innerHTML = '<div class="cal-empty">Sem dados.</div>';
+        elMes.innerHTML = '';
+        return;
+      }
+
+      buildMesOptions(allEventos);
+      updateViews();
+
+    } catch(e){
+      elStatus.textContent = 'Erro ao carregar o calendário.';
+      elList.innerHTML = '<div class="cal-empty">Não foi possível carregar.</div>';
+      elNext.innerHTML = '<div class="cal-empty">Não foi possível carregar.</div>';
+      console.error(e);
+    }
+  }
+
+  elMes.addEventListener('change', updateViews);
+  elReload.addEventListener('click', loadCalendar);
+
+  loadCalendar();
+</script>
