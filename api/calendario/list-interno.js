@@ -17,21 +17,33 @@ function findColIndex(header, candidates) {
   return -1;
 }
 
-function parseDataBR(raw) {
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+/**
+ * Lê uma data como "data pura" (sem fuso).
+ * - Se vier string DD/MM/AAAA -> usa direto
+ * - Se vier Date (Sheets) -> usa UTC getters (evita cair pro dia anterior)
+ */
+function parseDateParts(raw) {
   if (!raw) return null;
-  if (raw instanceof Date) return raw;
+
+  // Date vindo do Sheets
+  if (raw instanceof Date) {
+    const y = raw.getUTCFullYear();
+    const m = raw.getUTCMonth() + 1;
+    const d = raw.getUTCDate();
+    return { y, m, d };
+  }
+
+  // String BR
   const s = String(raw).trim();
   const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (!m) return null;
-  const dd = Number(m[1]), mm = Number(m[2]), aa = Number(m[3]);
-  return new Date(aa, mm-1, dd);
-}
 
-function fmtDate(dt, tz='America/Manaus') {
-  const dd = new Intl.DateTimeFormat('pt-BR',{timeZone:tz,day:'2-digit'}).format(dt);
-  const mm = new Intl.DateTimeFormat('pt-BR',{timeZone:tz,month:'2-digit'}).format(dt);
-  const aa = new Intl.DateTimeFormat('pt-BR',{timeZone:tz,year:'numeric'}).format(dt);
-  return { dataStr: `${dd}/${mm}/${aa}`, iso: `${aa}-${mm}-${dd}` };
+  const d = Number(m[1]);
+  const mo = Number(m[2]);
+  const y = Number(m[3]);
+  return { y, m: mo, d };
 }
 
 function safeStr(v){ return String(v ?? '').trim(); }
@@ -51,33 +63,32 @@ export default async function handler(req, res) {
     const ixAtiv    = findColIndex(header, ['atividade','evento']);
     const ixLinha   = findColIndex(header, ['linha']);
 
-    const TZ = 'America/Manaus';
     const eventos = [];
 
     for (let i=1;i<rows.length;i++) {
       const r = rows[i];
 
-      // ✅ SEMPRE precisa ter data
-      const dt = parseDataBR(r[ixData]);
-      if (!dt) continue;
+      const parts = parseDateParts(r[ixData]);
+      if (!parts) continue;
 
       const tipoLinhaRaw = ixTipoLn >= 0 ? safeStr(r[ixTipoLn]) : '';
       const atividade = ixAtiv >= 0 ? safeStr(r[ixAtiv]) : '';
       const feriado   = ixFeriado >= 0 ? safeStr(r[ixFeriado]) : '';
       const linha     = ixLinha >= 0 ? safeStr(r[ixLinha]) : '';
 
-      // ✅ FILTRO INTERNO (mais amplo):
-      // entra qualquer coisa que tiver data e algum conteúdo de evento.
+      // ✅ filtro amplo (interno)
       const hasSomething = !!atividade || !!feriado || !!linha || !!tipoLinhaRaw;
       if (!hasSomething) continue;
 
-      const { dataStr, iso } = fmtDate(dt, TZ);
+      const iso = `${parts.y}-${pad2(parts.m)}-${pad2(parts.d)}`;
+      const dataStr = `${pad2(parts.d)}/${pad2(parts.m)}/${parts.y}`;
+
       const mes = iso.slice(5,7), ano = iso.slice(0,4);
 
-      // categoria amigável pro front (tag)
+      // categoria
       const tipoNorm = norm(tipoLinhaRaw);
       let categoria = 'Evento';
-      if (tipoNorm === 'gira' || tipoNorm.includes('gira')) categoria = 'Gira';
+      if (tipoNorm.includes('gira')) categoria = 'Gira';
       else if (feriado) categoria = 'Feriado/Comemoração';
       else if (atividade) categoria = 'Atividade';
       else if (tipoLinhaRaw) categoria = tipoLinhaRaw;
