@@ -1,0 +1,274 @@
+<section class="pe-wrap">
+  <div class="pe-head">
+    <div>
+      <h2>Prontuário Espiritual</h2>
+      <p>Resumo da caminhada do médium: linha do tempo, quadrante, guias e observações.</p>
+    </div>
+
+    <div class="pe-controls">
+      <input id="pe-search" class="pe-input" placeholder="Buscar por nome..." />
+      <select id="pe-select" class="pe-select"></select>
+      <button id="pe-reload" class="pe-btn" type="button">Atualizar</button>
+    </div>
+  </div>
+
+  <div id="pe-status" class="pe-status">Carregando…</div>
+
+  <div id="pe-content" class="pe-content"></div>
+</section>
+
+<style>
+  .pe-wrap{ display:flex; flex-direction:column; gap:14px; }
+  .pe-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .pe-head h2{ margin:0; font-size:18px; }
+  .pe-head p{ margin:6px 0 0; color:#6b7280; }
+
+  .pe-controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .pe-input,.pe-select{
+    border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px;
+    background:#fff; color:#111827; font-weight:700;
+  }
+  .pe-input{ min-width:240px; }
+  .pe-btn{
+    border:1px solid #e5e7eb; border-radius:10px; padding:8px 12px;
+    background:#fff; cursor:pointer; font-weight:800; color:#0f766e;
+  }
+  .pe-btn:hover{ background:#f9fafb; }
+
+  .pe-status{
+    padding:10px 12px; border:1px solid #e5e7eb; border-radius:12px;
+    background:#fff; color:#6b7280;
+  }
+
+  .pe-content{
+    display:grid;
+    grid-template-columns: 1.1fr .9fr;
+    gap:14px;
+  }
+  @media (max-width: 1000px){ .pe-content{ grid-template-columns: 1fr; } }
+
+  .pe-card{
+    border:1px solid #e5e7eb; background:#fff; border-radius:16px;
+    padding:14px;
+    box-shadow:0 2px 10px rgba(0,0,0,.04);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .pe-card h3{ margin:0 0 6px; font-size:15px; }
+  .pe-kv{ display:grid; grid-template-columns: 180px 1fr; gap:8px 10px; }
+  .pe-k{ color:#6b7280; font-weight:800; font-size:13px; }
+  .pe-v{ color:#111827; font-weight:700; }
+  .pe-pill{
+    display:inline-flex; padding:6px 10px; border-radius:999px;
+    border:1px solid #0f766e40; background:#0f766e12; color:#0f766e;
+    font-weight:900; font-size:12px;
+  }
+  .pe-list{ margin:0; padding-left:18px; }
+  .pe-list li{ margin:4px 0; }
+  .pe-empty{ color:#6b7280; }
+  .pe-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width: 700px){ .pe-grid2{ grid-template-columns:1fr; } }
+</style>
+
+<script>
+  const API_URL = '/api/espiritual/list.js';
+
+  const elStatus = document.getElementById('pe-status');
+  const elContent = document.getElementById('pe-content');
+  const elReload = document.getElementById('pe-reload');
+  const elSelect = document.getElementById('pe-select');
+  const elSearch = document.getElementById('pe-search');
+
+  let cols = [];
+  let rows = [];
+  let filtered = [];
+
+  function escapeHtml(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  function findCol(groupIncludes, labelIncludes){
+    const g = (groupIncludes||'').toLowerCase();
+    const l = (labelIncludes||'').toLowerCase();
+    return cols.find(c =>
+      (c.group||'').toLowerCase().includes(g) &&
+      (c.label||'').toLowerCase().includes(l)
+    );
+  }
+
+  function findByLabel(labelIncludes){
+    const l = (labelIncludes||'').toLowerCase();
+    return cols.find(c => (c.label||'').toLowerCase().includes(l));
+  }
+
+  function buildSelect(list){
+    elSelect.innerHTML = list
+      .map((r, i) => `<option value="${i}">${escapeHtml(r.__name)}</option>`)
+      .join('');
+    elSelect.value = list.length ? "0" : "";
+  }
+
+  function applySearch(){
+    const q = (elSearch.value || '').trim().toLowerCase();
+    filtered = !q ? rows.slice() : rows.filter(r => r.__name.toLowerCase().includes(q));
+    buildSelect(filtered);
+    renderSelected();
+    elStatus.textContent = `${filtered.length} médiuns encontrados.`;
+  }
+
+  function getSelected(){
+    const idx = Number(elSelect.value);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= filtered.length) return null;
+    return filtered[idx];
+  }
+
+  function renderSelected(){
+    const r = getSelected();
+    if (!r){
+      elContent.innerHTML = '<div class="pe-empty">Selecione um médium.</div>';
+      return;
+    }
+
+    // campos principais (pela imagem)
+    const cNome   = findByLabel('nome completo');
+    const cFunc   = findByLabel('função atual');
+    const cNivel  = findByLabel('nível atual');
+    const cEnt    = findByLabel('entrada terreiro');
+    const cBat    = findByLabel('batizado');
+    const cCor    = findByLabel('coroação');
+
+    // quadrante (grupo "Quadrante", labels "Ancestre", "Frente", "Juntó")
+    const qAnc = findCol('quadrante','ancestre') || findByLabel('ancestre');
+    const qFre = findCol('quadrante','frente')   || findByLabel('frente');
+    const qJun = findCol('quadrante','junt')     || findByLabel('junt');
+
+    // Guias espirituais: pega todas colunas do grupo "Guias Espirituais" com valor preenchido
+    const guideCols = cols.filter(c => (c.group||'').toLowerCase().includes('guias'));
+    const guias = guideCols
+      .map(c => ({ label: c.label, value: (r[c.key]||'').trim() }))
+      .filter(x => x.value);
+
+    // Observações finais (pela imagem)
+    const cDesaf = findByLabel('principais desafios');
+    const cFort  = findByLabel('pontos fortes');
+    const cHist  = findByLabel('histórico de orientações');
+
+    const nome = cNome ? (r[cNome.key]||'') : r.__name;
+
+    const cardBase = `
+      <div class="pe-card">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <h3 style="margin:0;">${escapeHtml(nome || 'Médium')}</h3>
+            <div style="margin-top:6px;">
+              <span class="pe-pill">${escapeHtml((cNivel && r[cNivel.key]) ? r[cNivel.key] : 'Desenvolvimento')}</span>
+            </div>
+          </div>
+          <div style="color:#6b7280;font-weight:800;font-size:12px;">Linha ${escapeHtml(String(r.__row||''))}</div>
+        </div>
+
+        <div class="pe-kv">
+          <div class="pe-k">Função na casa</div><div class="pe-v">${escapeHtml(cFunc ? (r[cFunc.key]||'—') : '—')}</div>
+          <div class="pe-k">Entrada</div><div class="pe-v">${escapeHtml(cEnt ? (r[cEnt.key]||'—') : '—')}</div>
+          <div class="pe-k">Batizado</div><div class="pe-v">${escapeHtml(cBat ? (r[cBat.key]||'—') : '—')}</div>
+          <div class="pe-k">Coroação</div><div class="pe-v">${escapeHtml(cCor ? (r[cCor.key]||'—') : '—')}</div>
+        </div>
+      </div>
+    `;
+
+    const cardQuadrante = `
+      <div class="pe-card">
+        <h3>Quadrante</h3>
+        <div class="pe-kv">
+          <div class="pe-k">Ancestre</div><div class="pe-v">${escapeHtml(qAnc ? (r[qAnc.key]||'—') : '—')}</div>
+          <div class="pe-k">Frente</div><div class="pe-v">${escapeHtml(qFre ? (r[qFre.key]||'—') : '—')}</div>
+          <div class="pe-k">Juntó</div><div class="pe-v">${escapeHtml(qJun ? (r[qJun.key]||'—') : '—')}</div>
+        </div>
+      </div>
+    `;
+
+    const cardGuias = `
+      <div class="pe-card">
+        <h3>Guias espirituais</h3>
+        ${
+          guias.length
+            ? `<ul class="pe-list">${guias.map(g => `<li><b>${escapeHtml(g.label)}:</b> ${escapeHtml(g.value)}</li>`).join('')}</ul>`
+            : `<div class="pe-empty">Nenhum guia informado.</div>`
+        }
+      </div>
+    `;
+
+    const cardObs = `
+      <div class="pe-card">
+        <h3>Observações</h3>
+        <div class="pe-grid2">
+          <div>
+            <div class="pe-k" style="margin-bottom:6px;">Principais desafios</div>
+            <div class="pe-v">${escapeHtml(cDesaf ? (r[cDesaf.key]||'—') : '—')}</div>
+          </div>
+          <div>
+            <div class="pe-k" style="margin-bottom:6px;">Pontos fortes</div>
+            <div class="pe-v">${escapeHtml(cFort ? (r[cFort.key]||'—') : '—')}</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <div class="pe-k" style="margin-bottom:6px;">Histórico de orientações espirituais importantes</div>
+          <div class="pe-v" style="white-space:pre-wrap;">${escapeHtml(cHist ? (r[cHist.key]||'—') : '—')}</div>
+        </div>
+      </div>
+    `;
+
+    elContent.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        ${cardBase}
+        ${cardQuadrante}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        ${cardGuias}
+        ${cardObs}
+      </div>
+    `;
+  }
+
+  async function load(){
+    elStatus.textContent = 'Carregando…';
+    elContent.innerHTML = '';
+
+    try{
+      const res = await fetch(API_URL, { cache:'no-store' });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Falha ao carregar');
+
+      cols = Array.isArray(j.cols) ? j.cols : [];
+      rows = (Array.isArray(j.rows) ? j.rows : []).map(r => {
+        // tenta achar "Nome Completo" automaticamente para seleção
+        const cNome = cols.find(c => (c.label||'').toLowerCase().includes('nome'));
+        const name = cNome ? (r[cNome.key]||'').trim() : '';
+        return { ...r, __name: name || `Médium (linha ${r.__row||'?'})` };
+      });
+
+      // ordena por nome
+      rows.sort((a,b)=> a.__name.localeCompare(b.__name, 'pt-BR'));
+
+      filtered = rows.slice();
+      buildSelect(filtered);
+      renderSelected();
+      elStatus.textContent = `${rows.length} médiuns carregados.`;
+
+    } catch(e){
+      console.error(e);
+      elStatus.textContent = 'Erro ao carregar o prontuário.';
+      elContent.innerHTML = '<div class="pe-empty">Não foi possível carregar.</div>';
+    }
+  }
+
+  elReload.addEventListener('click', load);
+  elSearch.addEventListener('input', applySearch);
+  elSelect.addEventListener('change', renderSelected);
+
+  load();
+</script>
