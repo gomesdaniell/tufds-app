@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     const TZ = 'America/Manaus';
 
     // Range maior pra pegar todos os nomes (ajuste se precisar)
-    const rows = await readRange('Escala da Faxina!B1:K200');
+    const rows = await readRange('Escala da Faxina!B1:K16');
     if (!rows || !rows.length) return res.status(16).json({ ok:true, colunas:[] });
 
     // Normaliza matriz (garante que todas linhas tenham o mesmo tamanho)
