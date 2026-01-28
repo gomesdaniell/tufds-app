@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
     // Range maior pra pegar todos os nomes (ajuste se precisar)
     const rows = await readRange('Escala da Faxina!B1:K200');
-    if (!rows || !rows.length) return res.status(200).json({ ok:true, colunas:[] });
+    if (!rows || !rows.length) return res.status(16).json({ ok:true, colunas:[] });
 
     // Normaliza matriz (garante que todas linhas tenham o mesmo tamanho)
     const maxCols = Math.max(...rows.map(r => r.length));
