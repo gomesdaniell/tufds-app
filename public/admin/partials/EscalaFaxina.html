@@ -1,0 +1,193 @@
+<section class="fx-wrap">
+  <div class="fx-head">
+    <div>
+      <h2>Escala de Faxina</h2>
+      <p>Escala por grupo, com líder e lista de participantes.</p>
+    </div>
+
+    <div class="fx-controls">
+      <label class="fx-label">
+        Mês:
+        <select id="fx-mes" class="fx-select"></select>
+      </label>
+      <button id="fx-reload" class="fx-btn" type="button">Atualizar</button>
+    </div>
+  </div>
+
+  <div id="fx-status" class="fx-status">Carregando escala…</div>
+
+  <div id="fx-grid" class="fx-grid"></div>
+</section>
+
+<style>
+  .fx-wrap{ display:flex; flex-direction:column; gap:14px; }
+  .fx-head{ display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .fx-head h2{ margin:0; font-size:18px; }
+  .fx-head p{ margin:6px 0 0; color:#6b7280; }
+
+  .fx-controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .fx-label{ display:flex; gap:8px; align-items:center; font-weight:700; color:#111827; }
+  .fx-select{
+    border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px;
+    background:#fff; color:#111827; font-weight:700;
+  }
+  .fx-btn{
+    border:1px solid #e5e7eb; border-radius:10px; padding:8px 12px;
+    background:#fff; cursor:pointer; font-weight:800; color:#0f766e;
+  }
+  .fx-btn:hover{ background:#f9fafb; }
+
+  .fx-status{
+    padding:10px 12px; border:1px solid #e5e7eb; border-radius:12px;
+    background:#fff; color:#6b7280;
+  }
+
+  .fx-grid{
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap:14px;
+  }
+  @media (max-width: 1100px){ .fx-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 800px){ .fx-grid{ grid-template-columns: 1fr; } }
+
+  .fx-card{
+    border:1px solid #e5e7eb; background:#fff; border-radius:16px;
+    padding:14px;
+    box-shadow:0 2px 10px rgba(0,0,0,.04);
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .fx-top{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .fx-title{ font-weight:900; color:#111827; font-size:15px; }
+  .fx-pill{
+    font-size:12px; font-weight:900;
+    padding:6px 10px; border-radius:999px;
+    border:1px solid #0f766e40; background:#0f766e12; color:#0f766e;
+    white-space:nowrap;
+  }
+  .fx-meta{ color:#6b7280; font-size:13px; line-height:1.35; }
+  .fx-list{ margin:0; padding-left:18px; color:#111827; }
+  .fx-list li{ margin:4px 0; }
+  .fx-empty{ color:#6b7280; padding:8px 0; }
+</style>
+
+<script>
+  const API_URL = '/api/faxina/list.js';
+  const TZ = 'America/Manaus';
+
+  const elMes = document.getElementById('fx-mes');
+  const elStatus = document.getElementById('fx-status');
+  const elGrid = document.getElementById('fx-grid');
+  const elReload = document.getElementById('fx-reload');
+
+  let allCols = [];
+
+  function escapeHtml(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  function todayISO(){
+    const now = new Date();
+    const y = new Intl.DateTimeFormat('en-CA',{ timeZone:TZ, year:'numeric' }).format(now);
+    const m = new Intl.DateTimeFormat('en-CA',{ timeZone:TZ, month:'2-digit' }).format(now);
+    const d = new Intl.DateTimeFormat('en-CA',{ timeZone:TZ, day:'2-digit' }).format(now);
+    return `${y}-${m}-${d}`;
+  }
+
+  function keyFromIso(iso){ // "YYYY-MM-DD" -> "YYYY-MM"
+    return (iso && iso.length >= 7) ? iso.slice(0,7) : '';
+  }
+
+  function formatMesAno(key){ // "YYYY-MM"
+    const [y,m] = key.split('-');
+    const dt = new Date(Number(y), Number(m)-1, 1);
+    return new Intl.DateTimeFormat('pt-BR', { month:'long', year:'numeric', timeZone:TZ }).format(dt);
+  }
+
+  function getBaseDateIso(col){
+    // para filtro/ordenar, prioriza dataLimpeza
+    return col?.dataLimpeza?.iso || col?.dataGira?.iso || '';
+  }
+
+  function buildMesOptions(cols){
+    const keys = Array.from(new Set(cols.map(c => keyFromIso(getBaseDateIso(c))).filter(Boolean))).sort();
+    elMes.innerHTML = keys.map(k => `<option value="${k}">${formatMesAno(k)}</option>`).join('');
+
+    const cur = todayISO().slice(0,7);
+    elMes.value = keys.includes(cur) ? cur : (keys[0] || cur);
+  }
+
+  function render(){
+    const key = elMes.value;
+    const filtered = allCols.filter(c => keyFromIso(getBaseDateIso(c)) === key);
+
+    if (!filtered.length){
+      elGrid.innerHTML = '<div class="fx-empty">Nenhuma escala encontrada para este mês.</div>';
+      elStatus.textContent = `0 grupos • Mês: ${formatMesAno(key)}`;
+      return;
+    }
+
+    elGrid.innerHTML = filtered.map(c => {
+      const gira = c.dataGira?.br ? `Gira: ${c.dataGira.br}` : '';
+      const limp = c.dataLimpeza?.br ? `Limpeza: ${c.dataLimpeza.br}` : '';
+      const grupo = c.grupo ? c.grupo : 'Grupo';
+      const lider = c.lider ? `Líder: ${c.lider}` : 'Líder: —';
+
+      const pessoasHtml = (c.pessoas || []).length
+        ? `<ol class="fx-list">${c.pessoas.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ol>`
+        : `<div class="fx-empty">Sem nomes cadastrados nesta coluna.</div>`;
+
+      return `
+        <div class="fx-card">
+          <div class="fx-top">
+            <div>
+              <div class="fx-title">${escapeHtml(grupo)}</div>
+              <div class="fx-meta">${escapeHtml(lider)}</div>
+              <div class="fx-meta">${escapeHtml([gira, limp].filter(Boolean).join(' • '))}</div>
+            </div>
+            <div class="fx-pill">Faxina</div>
+          </div>
+          ${pessoasHtml}
+        </div>
+      `;
+    }).join('');
+
+    elStatus.textContent = `${filtered.length} grupos • Mês: ${formatMesAno(key)}`;
+  }
+
+  async function load(){
+    elStatus.textContent = 'Carregando escala…';
+    elGrid.innerHTML = '';
+
+    try{
+      const res = await fetch(API_URL, { cache:'no-store' });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'Falha ao carregar');
+
+      allCols = Array.isArray(j.colunas) ? j.colunas : [];
+      if (!allCols.length){
+        elStatus.textContent = 'Nenhuma escala encontrada na planilha.';
+        elGrid.innerHTML = '<div class="fx-empty">Sem dados.</div>';
+        elMes.innerHTML = '';
+        return;
+      }
+
+      buildMesOptions(allCols);
+      render();
+
+    } catch(e){
+      console.error(e);
+      elStatus.textContent = 'Erro ao carregar a escala.';
+      elGrid.innerHTML = '<div class="fx-empty">Não foi possível carregar.</div>';
+    }
+  }
+
+  elMes.addEventListener('change', render);
+  elReload.addEventListener('click', load);
+
+  load();
+</script>
