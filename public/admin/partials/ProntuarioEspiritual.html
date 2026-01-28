@@ -70,17 +70,14 @@
 </style>
 
 <script>
-  const API_URL = '/api/espiritual/list.js';
+  const API_URL = '/api/espiritual/me.js';
 
   const elStatus = document.getElementById('pe-status');
   const elContent = document.getElementById('pe-content');
   const elReload = document.getElementById('pe-reload');
-  const elSelect = document.getElementById('pe-select');
-  const elSearch = document.getElementById('pe-search');
 
   let cols = [];
-  let rows = [];
-  let filtered = [];
+  let row = null;
 
   function escapeHtml(s){
     return String(s ?? '')
@@ -105,35 +102,12 @@
     return cols.find(c => (c.label||'').toLowerCase().includes(l));
   }
 
-  function buildSelect(list){
-    elSelect.innerHTML = list
-      .map((r, i) => `<option value="${i}">${escapeHtml(r.__name)}</option>`)
-      .join('');
-    elSelect.value = list.length ? "0" : "";
-  }
-
-  function applySearch(){
-    const q = (elSearch.value || '').trim().toLowerCase();
-    filtered = !q ? rows.slice() : rows.filter(r => r.__name.toLowerCase().includes(q));
-    buildSelect(filtered);
-    renderSelected();
-    elStatus.textContent = `${filtered.length} médiuns encontrados.`;
-  }
-
-  function getSelected(){
-    const idx = Number(elSelect.value);
-    if (!Number.isFinite(idx) || idx < 0 || idx >= filtered.length) return null;
-    return filtered[idx];
-  }
-
-  function renderSelected(){
-    const r = getSelected();
-    if (!r){
-      elContent.innerHTML = '<div class="pe-empty">Selecione um médium.</div>';
+  function render(){
+    if (!row){
+      elContent.innerHTML = '<div class="pe-empty">Nenhum prontuário encontrado para o seu usuário.</div>';
       return;
     }
 
-    // campos principais (pela imagem)
     const cNome   = findByLabel('nome completo');
     const cFunc   = findByLabel('função atual');
     const cNivel  = findByLabel('nível atual');
@@ -141,23 +115,20 @@
     const cBat    = findByLabel('batizado');
     const cCor    = findByLabel('coroação');
 
-    // quadrante (grupo "Quadrante", labels "Ancestre", "Frente", "Juntó")
     const qAnc = findCol('quadrante','ancestre') || findByLabel('ancestre');
     const qFre = findCol('quadrante','frente')   || findByLabel('frente');
     const qJun = findCol('quadrante','junt')     || findByLabel('junt');
 
-    // Guias espirituais: pega todas colunas do grupo "Guias Espirituais" com valor preenchido
     const guideCols = cols.filter(c => (c.group||'').toLowerCase().includes('guias'));
     const guias = guideCols
-      .map(c => ({ label: c.label, value: (r[c.key]||'').trim() }))
+      .map(c => ({ label: c.label, value: (row[c.key]||'').trim() }))
       .filter(x => x.value);
 
-    // Observações finais (pela imagem)
     const cDesaf = findByLabel('principais desafios');
     const cFort  = findByLabel('pontos fortes');
     const cHist  = findByLabel('histórico de orientações');
 
-    const nome = cNome ? (r[cNome.key]||'') : r.__name;
+    const nome = cNome ? (row[cNome.key]||'') : 'Médium';
 
     const cardBase = `
       <div class="pe-card">
@@ -165,17 +136,17 @@
           <div>
             <h3 style="margin:0;">${escapeHtml(nome || 'Médium')}</h3>
             <div style="margin-top:6px;">
-              <span class="pe-pill">${escapeHtml((cNivel && r[cNivel.key]) ? r[cNivel.key] : 'Desenvolvimento')}</span>
+              <span class="pe-pill">${escapeHtml((cNivel && row[cNivel.key]) ? row[cNivel.key] : 'Desenvolvimento')}</span>
             </div>
           </div>
-          <div style="color:#6b7280;font-weight:800;font-size:12px;">Linha ${escapeHtml(String(r.__row||''))}</div>
+          <div style="color:#6b7280;font-weight:800;font-size:12px;">Linha ${escapeHtml(String(row.__row||''))}</div>
         </div>
 
         <div class="pe-kv">
-          <div class="pe-k">Função na casa</div><div class="pe-v">${escapeHtml(cFunc ? (r[cFunc.key]||'—') : '—')}</div>
-          <div class="pe-k">Entrada</div><div class="pe-v">${escapeHtml(cEnt ? (r[cEnt.key]||'—') : '—')}</div>
-          <div class="pe-k">Batizado</div><div class="pe-v">${escapeHtml(cBat ? (r[cBat.key]||'—') : '—')}</div>
-          <div class="pe-k">Coroação</div><div class="pe-v">${escapeHtml(cCor ? (r[cCor.key]||'—') : '—')}</div>
+          <div class="pe-k">Função na casa</div><div class="pe-v">${escapeHtml(cFunc ? (row[cFunc.key]||'—') : '—')}</div>
+          <div class="pe-k">Entrada</div><div class="pe-v">${escapeHtml(cEnt ? (row[cEnt.key]||'—') : '—')}</div>
+          <div class="pe-k">Batizado</div><div class="pe-v">${escapeHtml(cBat ? (row[cBat.key]||'—') : '—')}</div>
+          <div class="pe-k">Coroação</div><div class="pe-v">${escapeHtml(cCor ? (row[cCor.key]||'—') : '—')}</div>
         </div>
       </div>
     `;
@@ -184,9 +155,9 @@
       <div class="pe-card">
         <h3>Quadrante</h3>
         <div class="pe-kv">
-          <div class="pe-k">Ancestre</div><div class="pe-v">${escapeHtml(qAnc ? (r[qAnc.key]||'—') : '—')}</div>
-          <div class="pe-k">Frente</div><div class="pe-v">${escapeHtml(qFre ? (r[qFre.key]||'—') : '—')}</div>
-          <div class="pe-k">Juntó</div><div class="pe-v">${escapeHtml(qJun ? (r[qJun.key]||'—') : '—')}</div>
+          <div class="pe-k">Ancestre</div><div class="pe-v">${escapeHtml(qAnc ? (row[qAnc.key]||'—') : '—')}</div>
+          <div class="pe-k">Frente</div><div class="pe-v">${escapeHtml(qFre ? (row[qFre.key]||'—') : '—')}</div>
+          <div class="pe-k">Juntó</div><div class="pe-v">${escapeHtml(qJun ? (row[qJun.key]||'—') : '—')}</div>
         </div>
       </div>
     `;
@@ -208,16 +179,16 @@
         <div class="pe-grid2">
           <div>
             <div class="pe-k" style="margin-bottom:6px;">Principais desafios</div>
-            <div class="pe-v">${escapeHtml(cDesaf ? (r[cDesaf.key]||'—') : '—')}</div>
+            <div class="pe-v">${escapeHtml(cDesaf ? (row[cDesaf.key]||'—') : '—')}</div>
           </div>
           <div>
             <div class="pe-k" style="margin-bottom:6px;">Pontos fortes</div>
-            <div class="pe-v">${escapeHtml(cFort ? (r[cFort.key]||'—') : '—')}</div>
+            <div class="pe-v">${escapeHtml(cFort ? (row[cFort.key]||'—') : '—')}</div>
           </div>
         </div>
         <div style="margin-top:10px;">
           <div class="pe-k" style="margin-bottom:6px;">Histórico de orientações espirituais importantes</div>
-          <div class="pe-v" style="white-space:pre-wrap;">${escapeHtml(cHist ? (r[cHist.key]||'—') : '—')}</div>
+          <div class="pe-v" style="white-space:pre-wrap;">${escapeHtml(cHist ? (row[cHist.key]||'—') : '—')}</div>
         </div>
       </div>
     `;
@@ -244,20 +215,16 @@
       if (!j.ok) throw new Error(j.error || 'Falha ao carregar');
 
       cols = Array.isArray(j.cols) ? j.cols : [];
-      rows = (Array.isArray(j.rows) ? j.rows : []).map(r => {
-        // tenta achar "Nome Completo" automaticamente para seleção
-        const cNome = cols.find(c => (c.label||'').toLowerCase().includes('nome'));
-        const name = cNome ? (r[cNome.key]||'').trim() : '';
-        return { ...r, __name: name || `Médium (linha ${r.__row||'?'})` };
-      });
+      row = j.row || null;
 
-      // ordena por nome
-      rows.sort((a,b)=> a.__name.localeCompare(b.__name, 'pt-BR'));
+      if (!row){
+        elStatus.textContent = 'Prontuário não encontrado para seu usuário.';
+        render();
+        return;
+      }
 
-      filtered = rows.slice();
-      buildSelect(filtered);
-      renderSelected();
-      elStatus.textContent = `${rows.length} médiuns carregados.`;
+      elStatus.textContent = 'Prontuário carregado.';
+      render();
 
     } catch(e){
       console.error(e);
@@ -267,8 +234,6 @@
   }
 
   elReload.addEventListener('click', load);
-  elSearch.addEventListener('input', applySearch);
-  elSelect.addEventListener('change', renderSelected);
-
   load();
 </script>
+
